@@ -79,9 +79,14 @@ export default function LeadCreate() {
       .limit(1);
 
     if (newLeads?.[0]?.id) {
+      const createdLead = newLeads[0];
       supabase.functions.invoke("analyze-lead", {
-        body: { lead_id: newLeads[0].id },
+        body: { lead_id: createdLead.id },
       }).catch((err) => console.error("Auto-analyze failed:", err));
+
+      supabase.functions.invoke("fire-webhook", {
+        body: { event_type: "lead_created", payload: { id: createdLead.id, name: form.name.trim(), source: form.source } },
+      }).catch((err) => console.error("Webhook fire failed:", err));
     }
 
     toast.success("Lead oprettet — AI analyserer...");

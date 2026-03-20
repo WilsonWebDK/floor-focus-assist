@@ -64,6 +64,9 @@ export default function Settings() {
           ))}
         </div>
       </section>
+
+      {/* Webhooks */}
+      <WebhookPanel />
     </div>
   );
 }
