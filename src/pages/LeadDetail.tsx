@@ -399,7 +399,7 @@ function EditForm({ editData, setEditData }: { editData: Partial<Lead>; setEditD
       </div>
       <div className="sm:col-span-2">
         <Label className="text-xs">Interne noter</Label>
-        <Textarea value={editData.internal_notes ?? ""} onChange={(e) => setEditData({ ...editData, internal_notes: e.target.value })} rows={3} />
+        <Textarea value={editData.internal_notes ?? ""} onChange={(e) => setEditData({ ...editData, internal_notes: e.target.value })} rows={4} className="min-h-[100px]" />
       </div>
     </div>
   );
