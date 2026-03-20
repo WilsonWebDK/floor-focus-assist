@@ -161,6 +161,7 @@ export type Database = {
           google_calendar_link: string | null
           id: string
           internal_notes: string | null
+          is_priority: boolean | null
           job_type: string | null
           last_contacted_at: string | null
           lead_message: string | null
@@ -170,6 +171,7 @@ export type Database = {
           parking_info: string | null
           phone: string | null
           postal_code: string | null
+          quote_content: string | null
           source: Database["public"]["Enums"]["lead_source"]
           square_meters: number | null
           stairs_count: number | null
@@ -197,6 +199,7 @@ export type Database = {
           google_calendar_link?: string | null
           id?: string
           internal_notes?: string | null
+          is_priority?: boolean | null
           job_type?: string | null
           last_contacted_at?: string | null
           lead_message?: string | null
@@ -206,6 +209,7 @@ export type Database = {
           parking_info?: string | null
           phone?: string | null
           postal_code?: string | null
+          quote_content?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
           square_meters?: number | null
           stairs_count?: number | null
@@ -233,6 +237,7 @@ export type Database = {
           google_calendar_link?: string | null
           id?: string
           internal_notes?: string | null
+          is_priority?: boolean | null
           job_type?: string | null
           last_contacted_at?: string | null
           lead_message?: string | null
@@ -242,6 +247,7 @@ export type Database = {
           parking_info?: string | null
           phone?: string | null
           postal_code?: string | null
+          quote_content?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
           square_meters?: number | null
           stairs_count?: number | null
@@ -287,6 +293,33 @@ export type Database = {
           related_type?: string
           status?: Database["public"]["Enums"]["reminder_status"]
           title?: string
+        }
+        Relationships: []
+      }
+      sales_templates: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
         }
         Relationships: []
       }
