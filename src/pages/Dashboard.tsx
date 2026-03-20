@@ -38,6 +38,7 @@ export default function Dashboard() {
       if (aIsWebhook !== bIsWebhook) return aIsWebhook - bIsWebhook;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
+  const urgentLeads = leads.filter((l) => l.urgency_flag);
   const needsQualification = leads.filter((l) => l.status === "needs_qualification" || l.missing_info_summary);
   const todayReminders = reminders.filter((r) => {
     const due = new Date(r.due_at);
