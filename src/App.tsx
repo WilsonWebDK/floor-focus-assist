@@ -11,6 +11,7 @@ import LeadDetail from "@/pages/LeadDetail";
 import LeadCreate from "@/pages/LeadCreate";
 import Reminders from "@/pages/Reminders";
 import SupplierList from "@/pages/SupplierList";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
