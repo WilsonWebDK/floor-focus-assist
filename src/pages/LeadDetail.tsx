@@ -307,6 +307,7 @@ export default function LeadDetail() {
         suggestedQuestions={lead.suggested_questions}
         aiAnalysisFlags={(lead as any).ai_analysis_flags}
         suggestedPrice={(lead as any).suggested_price}
+        quoteContent={(lead as any).quote_content}
         onAnalyzed={loadData}
       />
 
