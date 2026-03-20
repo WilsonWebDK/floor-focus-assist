@@ -1,128 +1,102 @@
 
 
-# Phase 1: Branding Update, Calendar Prep, and Communication UI
+# Phase 2: AI Agent Activation
 
-This plan covers three areas: rebranding to the new color scheme, preparing Google Calendar integration, and building a chat-style communication history UI.
-
----
-
-## 1. Rebrand to New Color Palette
-
-Update `src/index.css` CSS variables and `tailwind.config.ts` to reflect the new brand:
-
-- **Background**: `#FFFFFF` (pure white)
-- **Primary/CTA**: `#0091FF` (bright blue) -- all buttons, active states, badges, ring
-- **Accent**: `#BBE9FE` (light blue) -- hover states, soft backgrounds, card highlights, secondary accents
-- **Sidebar**: Updated to match the blue palette instead of forest green
-
-Affected files: `src/index.css`, `tailwind.config.ts`
-
-No structural changes -- just HSL value swaps in CSS custom properties.
+## Overview
+Activate the AI core: document-based knowledge (RAG), automated lead analysis, and AI-powered price estimation. Uses Lovable AI Gateway with Gemini 2.5 Flash.
 
 ---
 
-## 2. Database Migration: Calendar Fields on Leads
+## 1. Database Migration
 
-Add two columns to the `leads` table:
+**New table: `knowledge_documents`**
+- `id` UUID PK, `user_id` UUID, `name` TEXT, `file_path` TEXT, `content_text` TEXT, `embedding` VECTOR(768), `created_at` TIMESTAMPTZ
+- RLS: authenticated users full access
+- Enable pgvector extension
 
-```sql
-ALTER TABLE public.leads
-  ADD COLUMN IF NOT EXISTS google_calendar_event_id TEXT,
-  ADD COLUMN IF NOT EXISTS google_calendar_link TEXT;
-```
+**New fields on `leads`**
+- `category` TEXT (e.g. "slibning", "lakering", "nyanlæg")
+- `ai_analysis_flags` JSONB (structured AI output: urgency reason, complexity reason, categorization)
+- `suggested_price` JSONB (price range, explanation, confidence)
+- Note: `urgency_flag`, `complexity_flag`, `suggested_questions` already exist
 
-These will store the Google Calendar event ID and a direct link to the event for each lead with a follow-up date.
-
----
-
-## 3. Google Calendar Integration (Edge Function + OAuth)
-
-This is the most complex part. The approach:
-
-**a) OAuth Flow**
-- Create an edge function `google-calendar-auth` that handles:
-  - Generating the Google OAuth consent URL (redirect user to Google)
-  - Handling the callback with authorization code
-  - Exchanging code for access/refresh tokens
-  - Storing tokens securely (new `user_google_tokens` table with RLS)
-
-**b) Calendar Sync Edge Function**
-- Create `google-calendar-sync` edge function that:
-  - Receives lead_id and follow-up date
-  - Uses stored Google tokens to create/update/delete calendar events
-  - Stores the `google_calendar_event_id` back on the lead
-  - Returns the calendar event link
-
-**c) Required Secrets**
-- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` -- will need to be added via the secrets tool. The user will need to create a Google Cloud project with Calendar API enabled.
-
-**d) New Database Table**
-```sql
-CREATE TABLE public.user_google_tokens (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL UNIQUE,
-  access_token TEXT NOT NULL,
-  refresh_token TEXT NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
--- RLS: users can only read/write their own tokens
-```
-
-**e) Frontend Changes**
-- Add a "Forbind Google Kalender" button in the app (settings or lead detail)
-- Add a "Synkroniser til kalender" toggle on LeadDetail when `next_followup_at` is set
-- Show calendar link when synced
+**Storage bucket**: `knowledge-docs` (private, for PDF/TXT/DOCX uploads)
 
 ---
 
-## 4. Enhanced Lead Detail Page
+## 2. Edge Functions
 
-Updates to `src/pages/LeadDetail.tsx`:
-- Apply new branding (blue accents on cards, borders)
-- Add "Kalender" section showing sync status and toggle
-- Add follow-up date picker (for `next_followup_at`)
-- When follow-up date changes and calendar sync is on, call the edge function
+### `analyze-lead`
+- Triggered from frontend when a lead is created/updated
+- Fetches lead data, sends to Lovable AI Gateway (Gemini 2.5 Flash)
+- AI returns structured output via tool calling: urgency flag, complexity flag, category, 3 suggested questions, analysis flags
+- Updates the lead record with AI results
 
----
+### `estimate-price`
+- Triggered from "Beregn tilbudspris" button on LeadDetail
+- Fetches lead data + RAG query on `knowledge_documents` (pgvector cosine similarity)
+- Sends lead context + relevant pricing docs to Gemini 2.5 Flash
+- Returns structured price range + explanation
+- Stores result in `suggested_price` JSONB on lead
 
-## 5. Communication History (Chat-Style UI Prep)
-
-Updates to `src/pages/LeadDetail.tsx`:
-- Replace the current linear communication log with a chat-bubble style layout
-- Inbound messages on the left, outbound on the right, internal notes centered
-- Add a placeholder "Gmail" tab that shows "Gmail-integration kommer snart" 
-- Create a `CommunicationTimeline` component for reuse
-
----
-
-## 6. Dashboard Enhancements
-
-Updates to `src/pages/Dashboard.tsx`:
-- Apply new branding colors
-- "Opfølgning i dag" widget items link to the lead detail page (already done)
-- Add calendar icon indicator on leads that are synced to Google Calendar
-- Ensure webhook-created leads (source != 'manual') sort to top of "Nye leads"
+### `embed-document`
+- Triggered after document upload
+- Extracts text content, generates embedding via Lovable AI Gateway
+- Stores text + embedding in `knowledge_documents`
 
 ---
 
-## Implementation Order
+## 3. Knowledge Base UI
 
-1. Branding update (CSS only, immediate visual impact)
-2. Database migration (calendar fields + token table)
-3. Communication timeline component
-4. LeadDetail UI enhancements (calendar section, chat UI, follow-up picker)
-5. Dashboard polish
-6. Google Calendar edge functions (auth + sync)
-7. Wire up calendar toggle to edge function
+New admin section accessible from Settings or sidebar:
+- Upload documents (PDF, TXT, DOCX) to storage bucket
+- List uploaded documents with name, date, delete action
+- After upload, calls `embed-document` edge function to process
+- Simple table view, no complex file browser
+
+---
+
+## 4. UI Enhancements
+
+### Dashboard (`Dashboard.tsx`)
+- Show AI category badge on lead cards (e.g. "Slibning")
+- Urgency icon (flame/alert) on AI-flagged leads
+- Complexity icon on flagged leads
+
+### LeadDetail (`LeadDetail.tsx`)
+- New "AI Indsigter" collapsible panel:
+  - Category badge
+  - Urgency/complexity flags with AI reasoning
+  - Suggested questions list (clickable to copy)
+- "Beregn tilbudspris" button
+  - Shows loading state while AI processes
+  - Displays price range (e.g. "8.500 - 12.000 kr") and explanation
+- AI results persist in DB, shown on reload
+
+### SupplierList (`SupplierList.tsx`)
+- "AI Leverandørmatch" button per lead context
+- Uses lead location + job type to suggest best supplier from existing supplier data
+- Calls a simple edge function that matches against supplier `cities_served` and `skills`
+
+---
+
+## 5. Implementation Order
+
+1. Database migration (pgvector, knowledge_documents table, new lead fields, storage bucket)
+2. `embed-document` edge function + Knowledge Base upload UI
+3. `analyze-lead` edge function + wire into LeadCreate/LeadDetail
+4. `estimate-price` edge function + LeadDetail price panel
+5. Dashboard AI badges and icons
+6. Supplier matching (lightweight, last priority)
 
 ---
 
 ## Technical Notes
 
-- Google OAuth requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` secrets. These will be requested from the user before building the edge functions.
-- The calendar sync is triggered manually via a toggle, not automatically, to keep the user in control.
-- The `user_google_tokens` table uses strict RLS so each user can only access their own tokens.
-- Edge functions use CORS headers and JWT validation per project standards.
+- All AI calls go through Lovable AI Gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`) via edge functions — never from client
+- Model: `google/gemini-2.5-flash` (fast, good reasoning, cost-effective)
+- Structured output uses tool calling (not JSON mode) for deterministic pricing results
+- pgvector embeddings generated via the AI gateway's embedding-compatible endpoint
+- LOVABLE_API_KEY is already configured as a secret
+- Document text extraction: for MVP, support plain text and simple parsing; full PDF parsing can be enhanced later
 
