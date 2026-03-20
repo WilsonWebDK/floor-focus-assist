@@ -125,6 +125,8 @@ export type Database = {
           elevator_info: string | null
           email: string | null
           floor_type: string | null
+          google_calendar_event_id: string | null
+          google_calendar_link: string | null
           id: string
           internal_notes: string | null
           job_type: string | null
@@ -156,6 +158,8 @@ export type Database = {
           elevator_info?: string | null
           email?: string | null
           floor_type?: string | null
+          google_calendar_event_id?: string | null
+          google_calendar_link?: string | null
           id?: string
           internal_notes?: string | null
           job_type?: string | null
@@ -187,6 +191,8 @@ export type Database = {
           elevator_info?: string | null
           email?: string | null
           floor_type?: string | null
+          google_calendar_event_id?: string | null
+          google_calendar_link?: string | null
           id?: string
           internal_notes?: string | null
           job_type?: string | null
@@ -296,6 +302,36 @@ export type Database = {
           skills?: string[] | null
           speaks_good_danish?: boolean | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_google_tokens: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          refresh_token: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          refresh_token: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
