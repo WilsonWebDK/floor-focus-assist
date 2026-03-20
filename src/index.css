@@ -6,8 +6,8 @@
 
 @layer base {
   :root {
-    /* Warm, grounded palette for a professional trades CRM */
-    --background: 40 20% 97%;
+    /* Clean professional blue palette — profgulve.dk */
+    --background: 0 0% 100%;
     --foreground: 220 20% 14%;
 
     --card: 0 0% 100%;
@@ -16,45 +16,45 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 14%;
 
-    /* Deep forest green — trustworthy, grounded */
-    --primary: 160 32% 28%;
-    --primary-foreground: 40 20% 97%;
+    /* Bright blue CTA — #0091FF */
+    --primary: 207 100% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 40 14% 92%;
+    /* Light blue accent — #BBE9FE */
+    --secondary: 198 98% 86%;
     --secondary-foreground: 220 20% 14%;
 
-    --muted: 40 10% 94%;
+    --muted: 210 14% 96%;
     --muted-foreground: 220 10% 46%;
 
-    --accent: 40 14% 92%;
+    --accent: 198 98% 93%;
     --accent-foreground: 220 20% 14%;
 
-    /* Warm amber for destructive/urgent */
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 40 12% 88%;
-    --input: 40 12% 88%;
-    --ring: 160 32% 28%;
+    --border: 214 14% 90%;
+    --input: 214 14% 90%;
+    --ring: 207 100% 50%;
 
     --radius: 0.625rem;
 
     /* Status colors */
-    --status-new: 210 70% 52%;
+    --status-new: 207 100% 50%;
     --status-urgent: 25 95% 53%;
     --status-warning: 45 93% 47%;
     --status-success: 152 60% 40%;
     --status-neutral: 220 10% 56%;
 
-    /* Sidebar */
-    --sidebar-background: 160 22% 18%;
-    --sidebar-foreground: 40 20% 92%;
-    --sidebar-primary: 40 20% 97%;
-    --sidebar-primary-foreground: 160 22% 18%;
-    --sidebar-accent: 160 18% 24%;
-    --sidebar-accent-foreground: 40 20% 92%;
-    --sidebar-border: 160 14% 26%;
-    --sidebar-ring: 160 32% 48%;
+    /* Sidebar — dark blue-grey */
+    --sidebar-background: 215 28% 17%;
+    --sidebar-foreground: 210 20% 92%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 215 28% 17%;
+    --sidebar-accent: 215 22% 23%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 215 18% 26%;
+    --sidebar-ring: 207 100% 50%;
   }
 }
 
