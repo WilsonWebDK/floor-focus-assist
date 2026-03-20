@@ -1,4 +1,5 @@
-import { CalendarDays, Mail, ChevronRight } from "lucide-react";
+import { CalendarDays, Mail, ChevronRight, Brain } from "lucide-react";
+import KnowledgeBase from "@/components/KnowledgeBase";
 
 const INTEGRATIONS = [
   {
@@ -23,10 +24,14 @@ export default function Settings() {
       <div>
         <h1 className="text-xl font-bold tracking-tight text-balance">Indstillinger</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Administrer integrationer og kontoindstillinger.
+          Administrer integrationer, vidensbase og kontoindstillinger.
         </p>
       </div>
 
+      {/* Knowledge Base */}
+      <KnowledgeBase />
+
+      {/* Integrations */}
       <section>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           Integrationer
