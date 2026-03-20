@@ -1,102 +1,129 @@
 
 
-# Phase 2: AI Agent Activation
-
-## Overview
-Activate the AI core: document-based knowledge (RAG), automated lead analysis, and AI-powered price estimation. Uses Lovable AI Gateway with Gemini 2.5 Flash.
-
----
+# Phase 3: Supplier CRUD, Reminder Engine, Webhook Control Panel
 
 ## 1. Database Migration
 
-**New table: `knowledge_documents`**
-- `id` UUID PK, `user_id` UUID, `name` TEXT, `file_path` TEXT, `content_text` TEXT, `embedding` VECTOR(768), `created_at` TIMESTAMPTZ
-- RLS: authenticated users full access
-- Enable pgvector extension
+**New tables:**
 
-**New fields on `leads`**
-- `category` TEXT (e.g. "slibning", "lakering", "nyanlæg")
-- `ai_analysis_flags` JSONB (structured AI output: urgency reason, complexity reason, categorization)
-- `suggested_price` JSONB (price range, explanation, confidence)
-- Note: `urgency_flag`, `complexity_flag`, `suggested_questions` already exist
+```sql
+-- Webhook settings
+CREATE TABLE public.webhook_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,         -- 'lead_created', 'lead_won', 'status_changed'
+  webhook_url TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_by UUID,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+-- RLS: authenticated full access
 
-**Storage bucket**: `knowledge-docs` (private, for PDF/TXT/DOCX uploads)
+-- Webhook logs
+CREATE TABLE public.webhook_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  webhook_setting_id UUID REFERENCES public.webhook_settings(id) ON DELETE SET NULL,
+  event_type TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  status_code INTEGER,
+  response_body TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+-- RLS: authenticated select access
+```
 
----
-
-## 2. Edge Functions
-
-### `analyze-lead`
-- Triggered from frontend when a lead is created/updated
-- Fetches lead data, sends to Lovable AI Gateway (Gemini 2.5 Flash)
-- AI returns structured output via tool calling: urgency flag, complexity flag, category, 3 suggested questions, analysis flags
-- Updates the lead record with AI results
-
-### `estimate-price`
-- Triggered from "Beregn tilbudspris" button on LeadDetail
-- Fetches lead data + RAG query on `knowledge_documents` (pgvector cosine similarity)
-- Sends lead context + relevant pricing docs to Gemini 2.5 Flash
-- Returns structured price range + explanation
-- Stores result in `suggested_price` JSONB on lead
-
-### `embed-document`
-- Triggered after document upload
-- Extracts text content, generates embedding via Lovable AI Gateway
-- Stores text + embedding in `knowledge_documents`
+No schema changes needed for suppliers or reminders -- existing tables are sufficient.
 
 ---
 
-## 3. Knowledge Base UI
+## 2. Supplier Management -- Full CRUD
 
-New admin section accessible from Settings or sidebar:
-- Upload documents (PDF, TXT, DOCX) to storage bucket
-- List uploaded documents with name, date, delete action
-- After upload, calls `embed-document` edge function to process
-- Simple table view, no complex file browser
+**File: `src/pages/SupplierList.tsx`** (rewrite)
 
----
-
-## 4. UI Enhancements
-
-### Dashboard (`Dashboard.tsx`)
-- Show AI category badge on lead cards (e.g. "Slibning")
-- Urgency icon (flame/alert) on AI-flagged leads
-- Complexity icon on flagged leads
-
-### LeadDetail (`LeadDetail.tsx`)
-- New "AI Indsigter" collapsible panel:
-  - Category badge
-  - Urgency/complexity flags with AI reasoning
-  - Suggested questions list (clickable to copy)
-- "Beregn tilbudspris" button
-  - Shows loading state while AI processes
-  - Displays price range (e.g. "8.500 - 12.000 kr") and explanation
-- AI results persist in DB, shown on reload
-
-### SupplierList (`SupplierList.tsx`)
-- "AI Leverandørmatch" button per lead context
-- Uses lead location + job type to suggest best supplier from existing supplier data
-- Calls a simple edge function that matches against supplier `cities_served` and `skills`
+- Add "Tilføj leverandør" button opening a create dialog/form
+- Each supplier card gets Edit and Delete action buttons
+- Edit opens an inline form or dialog with all supplier fields (name, phone, email, skills, cities_served, quality_score, price_level, can_do_carpentry, speaks_good_danish, notes)
+- Delete with confirmation
+- Keep the existing card layout but add action buttons
 
 ---
 
-## 5. Implementation Order
+## 3. AI Supplier Match on LeadDetail
 
-1. Database migration (pgvector, knowledge_documents table, new lead fields, storage bucket)
-2. `embed-document` edge function + Knowledge Base upload UI
-3. `analyze-lead` edge function + wire into LeadCreate/LeadDetail
-4. `estimate-price` edge function + LeadDetail price panel
-5. Dashboard AI badges and icons
-6. Supplier matching (lightweight, last priority)
+**New edge function: `match-supplier`**
+- Receives `lead_id`
+- Fetches lead (city, floor_type, job_type, square_meters)
+- Fetches all suppliers
+- Sends to Gemini 2.5 Flash with tool calling to return top 3 matches with reasoning
+- Returns structured result: `[{ supplier_id, name, score, reason }]`
+
+**LeadDetail UI addition:**
+- New "Find bedste leverandør" button in the AI panel or as a separate section
+- Shows top match with supplier name, score, reasoning, and a one-click "Tildel" button
+- "Tildel" sets `lead.assigned_to` (note: assigned_to is UUID, but suppliers use their own IDs -- we'll store supplier name in a new display or use the supplier ID differently)
+- Actually, `assigned_to` is a UUID meant for users. Better approach: add a "matched_supplier" display that links to the supplier. We can store the match result in the lead's `ai_analysis_flags` or show it ephemerally.
+
+Decision: Show match results ephemerally (not persisted) since supplier matching is an advisory action. The user clicks "Tildel" which could update `internal_notes` with the supplier assignment, or we keep it simple and just display the result.
+
+---
+
+## 4. Automated Reminder Engine
+
+**Approach:** A scheduled edge function `auto-reminders` that runs periodically (via pg_cron) and:
+1. Finds leads where `status = 'new'` AND `created_at < now() - interval '24 hours'`
+2. Checks if a reminder already exists for that lead (avoid duplicates)
+3. Creates a reminder: "Opfølgning på nyt lead: {name}" with `due_at = now()`
+
+**Reminders.tsx enhancements:**
+- Replace the binary "Aktive/Fuldførte" filter with three tabs: "Forfaldne" (overdue), "I dag" (today), "Kommende" (upcoming)
+- Add visual urgency: red pulse/dot for overdue, yellow for today
+- Link each reminder to its related lead (clickable)
+
+---
+
+## 5. Webhook Control Panel in Settings
+
+**Settings.tsx** -- Add a "Webhooks" section (or tab) with two sub-sections:
+
+**Incoming Webhooks:**
+- Display the REST API URL for the leads table: `https://{project_ref}.supabase.co/rest/v1/leads`
+- Show the anon key (already public) and example curl/Make.com HTTP module config
+- Read-only instructional panel
+
+**Outgoing Webhooks:**
+- CRUD interface for `webhook_settings` table
+- Form: event type dropdown (Lead oprettet, Lead vundet, Status ændret) + webhook URL input + active toggle
+- List existing webhook settings with edit/delete
+- Show recent webhook logs from `webhook_logs` (last 20)
+
+**New edge function: `fire-webhook`**
+- Called from frontend when lead status changes (or can be triggered via database webhook later)
+- Fetches active webhook_settings matching the event_type
+- POSTs lead data to each URL
+- Logs result in webhook_logs
+
+**Integration points:**
+- In LeadDetail `updateStatus()`, after status change, call `fire-webhook` edge function with event_type and lead data
+- In LeadCreate, after creation, call `fire-webhook` with `lead_created`
+
+---
+
+## 6. Implementation Order
+
+1. Database migration (webhook_settings, webhook_logs tables)
+2. Supplier CRUD (SupplierList.tsx rewrite with create/edit/delete)
+3. `match-supplier` edge function + LeadDetail button
+4. Reminders.tsx enhanced filters + urgency indicators
+5. `auto-reminders` edge function + pg_cron schedule
+6. Webhook Control Panel UI in Settings
+7. `fire-webhook` edge function + wire into LeadDetail/LeadCreate
 
 ---
 
 ## Technical Notes
 
-- All AI calls go through Lovable AI Gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`) via edge functions — never from client
-- Model: `google/gemini-2.5-flash` (fast, good reasoning, cost-effective)
-- Structured output uses tool calling (not JSON mode) for deterministic pricing results
-- pgvector embeddings generated via the AI gateway's embedding-compatible endpoint
-- LOVABLE_API_KEY is already configured as a secret
-- Document text extraction: for MVP, support plain text and simple parsing; full PDF parsing can be enhanced later
+- All AI calls use `google/gemini-2.5-flash` via the Lovable AI Gateway
+- Supplier match results shown ephemerally -- no new DB columns needed
+- The `fire-webhook` function uses service role to read webhook_settings but validates the calling user's JWT
+- pg_cron for auto-reminders uses the project's anon key and REST URL (inserted via the insert tool, not migrations)
+- Webhook logs provide transparency for Make.com debugging
 
