@@ -68,7 +68,23 @@ export default function LeadCreate() {
       setSaving(false);
       return;
     }
-    toast.success("Lead oprettet");
+
+    // Get the created lead ID and trigger AI analysis in background
+    const { data: newLeads } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("name", form.name.trim())
+      .eq("created_by", user?.id ?? "")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (newLeads?.[0]?.id) {
+      supabase.functions.invoke("analyze-lead", {
+        body: { lead_id: newLeads[0].id },
+      }).catch((err) => console.error("Auto-analyze failed:", err));
+    }
+
+    toast.success("Lead oprettet — AI analyserer...");
     navigate("/leads");
   };
 
