@@ -10,6 +10,7 @@ import {
   LogOut,
   Plus,
   Truck,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { to: "/leads", label: "Leads", icon: Users },
   { to: "/suppliers", label: "Leverandører", icon: Truck },
   { to: "/reminders", label: "Påmindelser", icon: Bell },
+  { to: "/settings", label: "Indstillinger", icon: Settings },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {

@@ -11,6 +11,7 @@ import LeadDetail from "@/pages/LeadDetail";
 import LeadCreate from "@/pages/LeadCreate";
 import Reminders from "@/pages/Reminders";
 import SupplierList from "@/pages/SupplierList";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ function ProtectedRoutes() {
         <Route path="/leads/:id" element={<LeadDetail />} />
         <Route path="/reminders" element={<Reminders />} />
         <Route path="/suppliers" element={<SupplierList />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>
