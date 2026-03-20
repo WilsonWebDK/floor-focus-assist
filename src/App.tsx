@@ -38,6 +38,7 @@ function ProtectedRoutes() {
         <Route path="/leads/:id" element={<LeadDetail />} />
         <Route path="/reminders" element={<Reminders />} />
         <Route path="/suppliers" element={<SupplierList />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>
