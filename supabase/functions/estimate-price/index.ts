@@ -48,11 +48,18 @@ Kundedata:
 - Gulvtype: ${lead.floor_type || "ikke angivet"}
 - Ønsket behandling: ${lead.treatment_preference || "ikke angivet"}
 - Antal trapper: ${lead.stairs_count ?? 0}
-- Antal dørtrin: ${lead.doorsteps_count ?? 0}
+- Antal dørtrin: ${lead.doorsteps_count ?? 0} (PRISFORØGENDE: hvert dørtrin kræver ekstra arbejde)
+- Parkeringsforhold: ${lead.parking_info || "ikke angivet"} (PRISFORØGENDE: svær parkering = ekstra tid og logistik)
+- Elevator: ${lead.elevator_info || "ikke angivet"} (PRISFORØGENDE: ingen elevator i etageejendom = bæring af udstyr)
 - By: ${lead.city || "ukendt"}
 - Kategori: ${lead.category || "ikke kategoriseret"}
 - Kompleksitet: ${lead.complexity_flag ? "Ja" : "Nej"}
 ${knowledgeContext}
+
+VIGTIGT: Medregn altid følgende som prisforøgende faktorer:
+1. Antal dørtrin (doorsteps_count) — hvert dørtrin kræver ekstra slibning/lakering
+2. Parkeringsforhold (parking_info) — svær parkering øger transporttid
+3. Elevator/etage (elevator_info) — ingen elevator i etageejendom kræver manuel bæring af tungt udstyr
 
 Giv et realistisk prisoverslag for denne opgave. Hvis der mangler vigtige oplysninger, angiv det. Brug altid danske kroner (kr.).`;
 

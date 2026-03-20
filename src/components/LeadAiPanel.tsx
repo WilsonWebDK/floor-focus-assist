@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp, Users, Star } from "lucide-react";
+import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp, Users, Star, FileText, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,7 @@ interface LeadAiPanelProps {
   suggestedQuestions: string[] | null;
   aiAnalysisFlags: AiAnalysisFlags | null;
   suggestedPrice: SuggestedPrice | null;
+  quoteContent: string | null;
   onAnalyzed: () => void;
 }
 
@@ -47,13 +49,28 @@ export default function LeadAiPanel({
   suggestedQuestions,
   aiAnalysisFlags,
   suggestedPrice,
+  quoteContent,
   onAnalyzed,
 }: LeadAiPanelProps) {
+  const { user } = useAuth();
   const [analyzing, setAnalyzing] = useState(false);
   const [estimating, setEstimating] = useState(false);
   const [matching, setMatching] = useState(false);
+  const [generatingQuote, setGeneratingQuote] = useState(false);
   const [supplierMatches, setSupplierMatches] = useState<SupplierMatch[]>([]);
   const [expanded, setExpanded] = useState(true);
+  const [localQuote, setLocalQuote] = useState(quoteContent || "");
+
+  // Auto-run supplier match on mount
+  useEffect(() => {
+    if (supplierMatches.length === 0) {
+      runSupplierMatch(true);
+    }
+  }, [leadId]);
+
+  useEffect(() => {
+    setLocalQuote(quoteContent || "");
+  }, [quoteContent]);
 
   const runAnalysis = async () => {
     setAnalyzing(true);
@@ -83,27 +100,68 @@ export default function LeadAiPanel({
     onAnalyzed();
   };
 
-  const runSupplierMatch = async () => {
+  const runSupplierMatch = async (silent = false) => {
     setMatching(true);
     const { data, error } = await supabase.functions.invoke("match-supplier", {
       body: { lead_id: leadId },
     });
     setMatching(false);
     if (error) {
-      toast.error("Leverandørmatch fejlede: " + error.message);
+      if (!silent) toast.error("Leverandørmatch fejlede: " + error.message);
       return;
     }
     setSupplierMatches(data?.matches ?? []);
-    if ((data?.matches ?? []).length === 0) {
-      toast.info(data?.message || "Ingen matches fundet");
-    } else {
-      toast.success("Leverandørmatch fundet");
+    if (!silent) {
+      if ((data?.matches ?? []).length === 0) {
+        toast.info(data?.message || "Ingen matches fundet");
+      } else {
+        toast.success("Leverandørmatch fundet");
+      }
     }
+  };
+
+  const generateQuote = async () => {
+    setGeneratingQuote(true);
+    const { data, error } = await supabase.functions.invoke("generate-quote", {
+      body: { lead_id: leadId },
+    });
+    setGeneratingQuote(false);
+    if (error) {
+      toast.error("Tilbudsgenerering fejlede: " + error.message);
+      return;
+    }
+    if (data?.error) {
+      toast.error(data.error);
+      return;
+    }
+    setLocalQuote(data?.quote_text || "");
+    toast.success("Tilbud genereret");
+    onAnalyzed();
+  };
+
+  const requestAvailability = async (supplierName: string) => {
+    const { error } = await supabase.from("reminders").insert({
+      title: `Tjek tilgængelighed: ${supplierName}`,
+      due_at: new Date().toISOString(),
+      related_id: leadId,
+      related_type: "lead",
+      created_by: user?.id,
+    });
+    if (error) {
+      toast.error("Kunne ikke oprette påmindelse");
+      return;
+    }
+    toast.success("Påmindelse oprettet: Tjek tilgængelighed");
   };
 
   const copyQuestion = (q: string) => {
     navigator.clipboard.writeText(q);
     toast.success("Kopieret til udklipsholder");
+  };
+
+  const copyQuote = () => {
+    navigator.clipboard.writeText(localQuote);
+    toast.success("Tilbud kopieret til udklipsholder");
   };
 
   const hasAnalysis = !!aiAnalysisFlags?.analyzed_at;
@@ -128,18 +186,8 @@ export default function LeadAiPanel({
       {expanded && (
         <div className="px-4 pb-4 space-y-4">
           {/* Analyze button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={runAnalysis}
-            disabled={analyzing}
-            className="w-full"
-          >
-            {analyzing ? (
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-            )}
+          <Button variant="outline" size="sm" onClick={runAnalysis} disabled={analyzing} className="w-full">
+            {analyzing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
             {hasAnalysis ? "Kør analyse igen" : "Analysér med AI"}
           </Button>
 
@@ -199,18 +247,8 @@ export default function LeadAiPanel({
 
           {/* Price estimation */}
           <div className="border-t pt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={runPriceEstimate}
-              disabled={estimating}
-              className="w-full"
-            >
-              {estimating ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Calculator className="h-3.5 w-3.5 mr-1.5" />
-              )}
+            <Button variant="outline" size="sm" onClick={runPriceEstimate} disabled={estimating} className="w-full">
+              {estimating ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5 mr-1.5" />}
               {hasPrice ? "Beregn pris igen" : "Beregn tilbudspris"}
             </Button>
 
@@ -242,20 +280,30 @@ export default function LeadAiPanel({
             )}
           </div>
 
+          {/* Quote generation */}
+          <div className="border-t pt-4">
+            <Button variant="outline" size="sm" onClick={generateQuote} disabled={generatingQuote} className="w-full">
+              {generatingQuote ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />}
+              {localQuote ? "Generér tilbud igen" : "Generér tilbud"}
+            </Button>
+
+            {localQuote && (
+              <div className="mt-3 rounded-lg bg-accent/30 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Tilbudstekst</span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={copyQuote}>
+                    <Copy className="h-3 w-3 mr-1" /> Kopiér
+                  </Button>
+                </div>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{localQuote}</p>
+              </div>
+            )}
+          </div>
+
           {/* Supplier matching */}
           <div className="border-t pt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={runSupplierMatch}
-              disabled={matching}
-              className="w-full"
-            >
-              {matching ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <Users className="h-3.5 w-3.5 mr-1.5" />
-              )}
+            <Button variant="outline" size="sm" onClick={() => runSupplierMatch(false)} disabled={matching} className="w-full">
+              {matching ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Users className="h-3.5 w-3.5 mr-1.5" />}
               Find bedste leverandør
             </Button>
 
@@ -276,6 +324,17 @@ export default function LeadAiPanel({
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">{m.reason}</p>
+                    {i === 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1.5 h-7 text-xs"
+                        onClick={() => requestAvailability(m.name)}
+                      >
+                        <Bell className="h-3 w-3 mr-1" />
+                        Anmod om tilgængelighed
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>

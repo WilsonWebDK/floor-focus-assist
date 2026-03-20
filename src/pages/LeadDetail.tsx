@@ -307,6 +307,7 @@ export default function LeadDetail() {
         suggestedQuestions={lead.suggested_questions}
         aiAnalysisFlags={(lead as any).ai_analysis_flags}
         suggestedPrice={(lead as any).suggested_price}
+        quoteContent={(lead as any).quote_content}
         onAnalyzed={loadData}
       />
 
@@ -398,7 +399,7 @@ function EditForm({ editData, setEditData }: { editData: Partial<Lead>; setEditD
       </div>
       <div className="sm:col-span-2">
         <Label className="text-xs">Interne noter</Label>
-        <Textarea value={editData.internal_notes ?? ""} onChange={(e) => setEditData({ ...editData, internal_notes: e.target.value })} rows={3} />
+        <Textarea value={editData.internal_notes ?? ""} onChange={(e) => setEditData({ ...editData, internal_notes: e.target.value })} rows={4} className="min-h-[100px]" />
       </div>
     </div>
   );

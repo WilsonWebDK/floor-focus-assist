@@ -39,17 +39,30 @@ const EVENT_TYPES: Record<string, string> = {
   status_changed: "Status ændret",
 };
 
+const FIELD_MAPPING = [
+  { elementor: "name", lead: "name", description: "Kundens fulde navn" },
+  { elementor: "phone", lead: "phone", description: "Telefonnummer" },
+  { elementor: "email", lead: "email", description: "Email-adresse" },
+  { elementor: "address", lead: "address", description: "Gadeadresse" },
+  { elementor: "city", lead: "city", description: "By" },
+  { elementor: "postal_code", lead: "postal_code", description: "Postnummer" },
+  { elementor: "job_type", lead: "job_type", description: "Type opgave (slibning, lakering, etc.)" },
+  { elementor: "floor_type", lead: "floor_type", description: "Gulvtype (eg, fyr, etc.)" },
+  { elementor: "square_meters", lead: "square_meters", description: "Antal kvadratmeter (tal)" },
+  { elementor: "message / lead_message", lead: "lead_message", description: "Kundens besked" },
+];
+
 export default function WebhookPanel() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<WebhookSetting[]>([]);
   const [logs, setLogs] = useState<WebhookLog[]>([]);
   const [showIncoming, setShowIncoming] = useState(false);
+  const [showMapping, setShowMapping] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [newEventType, setNewEventType] = useState("lead_created");
   const [newUrl, setNewUrl] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const restUrl = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/leads`;
 
@@ -147,6 +160,42 @@ export default function WebhookPanel() {
   -H 'Content-Type: application/json' \\
   -d '{"name":"Ny Kunde","phone":"12345678","source":"website_form"}'`}
               </pre>
+            </div>
+
+            {/* Field mapping table */}
+            <div>
+              <button
+                onClick={() => setShowMapping(!showMapping)}
+                className="flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+              >
+                {showMapping ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                Feltmapping (Elementor → Lead)
+              </button>
+              {showMapping && (
+                <div className="mt-2 rounded-md border overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-muted/50">
+                        <th className="text-left p-2 font-medium text-muted-foreground">Formular-felt</th>
+                        <th className="text-left p-2 font-medium text-muted-foreground">Lead-kolonne</th>
+                        <th className="text-left p-2 font-medium text-muted-foreground hidden sm:table-cell">Beskrivelse</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {FIELD_MAPPING.map((f) => (
+                        <tr key={f.lead} className="border-t">
+                          <td className="p-2 font-mono text-[11px]">{f.elementor}</td>
+                          <td className="p-2 font-mono text-[11px] text-primary">{f.lead}</td>
+                          <td className="p-2 text-muted-foreground hidden sm:table-cell">{f.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="text-[11px] text-muted-foreground p-2 bg-muted/30">
+                    I Make.com: Sæt HTTP-modulet til at sende JSON med nøglerne i kolonnen "Lead-kolonne". Tilføj <code className="font-mono">source: "website_form"</code> for at markere kilden.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
