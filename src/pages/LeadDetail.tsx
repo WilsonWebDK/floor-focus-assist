@@ -5,6 +5,7 @@ import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import type { Enums } from "@/integrations/supabase/types";
 import StatusBadge from "@/components/StatusBadge";
 import CommunicationTimeline from "@/components/CommunicationTimeline";
+import LeadAiPanel from "@/components/LeadAiPanel";
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -290,20 +291,17 @@ export default function LeadDetail() {
         )}
       </div>
 
-      {/* Missing info */}
-      {lead.suggested_questions && lead.suggested_questions.length > 0 && (
-        <div className="rounded-lg border border-status-warning/30 bg-status-warning/5 p-4">
-          <h2 className="text-sm font-semibold mb-2">Foreslåede spørgsmål</h2>
-          <ul className="space-y-1">
-            {lead.suggested_questions.map((q, i) => (
-              <li key={i} className="text-sm text-foreground flex gap-2">
-                <span className="text-muted-foreground">{i + 1}.</span>
-                {q}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* AI Insights Panel */}
+      <LeadAiPanel
+        leadId={lead.id}
+        category={(lead as any).category}
+        urgencyFlag={lead.urgency_flag ?? false}
+        complexityFlag={lead.complexity_flag ?? false}
+        suggestedQuestions={lead.suggested_questions}
+        aiAnalysisFlags={(lead as any).ai_analysis_flags}
+        suggestedPrice={(lead as any).suggested_price}
+        onAnalyzed={loadData}
+      />
 
       {/* Communication log */}
       <div className="rounded-lg border bg-card p-4">

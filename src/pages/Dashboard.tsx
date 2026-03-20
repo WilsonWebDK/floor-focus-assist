@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import DashboardWidget from "@/components/DashboardWidget";
 import StatusBadge from "@/components/StatusBadge";
-import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2 } from "lucide-react";
+import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2, Flame, Puzzle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
 
@@ -221,9 +221,17 @@ export default function Dashboard() {
                     {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: da })}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 ml-2 shrink-0">
+                <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                  {(lead as any).category && (
+                    <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium">
+                      {(lead as any).category}
+                    </span>
+                  )}
                   {lead.urgency_flag && (
-                    <AlertTriangle className="h-3.5 w-3.5 text-status-urgent" />
+                    <Flame className="h-3.5 w-3.5 text-status-urgent" />
+                  )}
+                  {lead.complexity_flag && (
+                    <Puzzle className="h-3.5 w-3.5 text-status-warning" />
                   )}
                   <StatusBadge status={lead.status} />
                 </div>

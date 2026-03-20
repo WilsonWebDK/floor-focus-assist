@@ -113,10 +113,42 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_documents: {
+        Row: {
+          content_text: string | null
+          created_at: string
+          embedding: string | null
+          file_path: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          content_text?: string | null
+          created_at?: string
+          embedding?: string | null
+          file_path: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          content_text?: string | null
+          created_at?: string
+          embedding?: string | null
+          file_path?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           address: string | null
+          ai_analysis_flags: Json | null
           assigned_to: string | null
+          category: string | null
           city: string | null
           complexity_flag: boolean | null
           created_at: string
@@ -142,6 +174,7 @@ export type Database = {
           square_meters: number | null
           stairs_count: number | null
           status: Database["public"]["Enums"]["lead_status"]
+          suggested_price: Json | null
           suggested_questions: string[] | null
           treatment_preference: string | null
           updated_at: string
@@ -149,7 +182,9 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          ai_analysis_flags?: Json | null
           assigned_to?: string | null
+          category?: string | null
           city?: string | null
           complexity_flag?: boolean | null
           created_at?: string
@@ -175,6 +210,7 @@ export type Database = {
           square_meters?: number | null
           stairs_count?: number | null
           status?: Database["public"]["Enums"]["lead_status"]
+          suggested_price?: Json | null
           suggested_questions?: string[] | null
           treatment_preference?: string | null
           updated_at?: string
@@ -182,7 +218,9 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          ai_analysis_flags?: Json | null
           assigned_to?: string | null
+          category?: string | null
           city?: string | null
           complexity_flag?: boolean | null
           created_at?: string
@@ -208,6 +246,7 @@ export type Database = {
           square_meters?: number | null
           stairs_count?: number | null
           status?: Database["public"]["Enums"]["lead_status"]
+          suggested_price?: Json | null
           suggested_questions?: string[] | null
           treatment_preference?: string | null
           updated_at?: string
