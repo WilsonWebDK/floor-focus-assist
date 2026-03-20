@@ -1,31 +1,64 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isToday, isBefore, startOfDay } from "date-fns";
 import { da } from "date-fns/locale";
-import { Check, Clock, RotateCcw } from "lucide-react";
+import { Check, Clock, RotateCcw, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 type Reminder = Tables<"reminders">;
 
+type FilterTab = "overdue" | "today" | "upcoming" | "completed";
+
+const TAB_LABELS: Record<FilterTab, string> = {
+  overdue: "Forfaldne",
+  today: "I dag",
+  upcoming: "Kommende",
+  completed: "Fuldførte",
+};
+
 export default function Reminders() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"pending" | "completed">("pending");
+  const [filter, setFilter] = useState<FilterTab>("overdue");
 
   const load = async () => {
-    const { data } = await supabase
-      .from("reminders")
-      .select("*")
-      .eq("status", filter)
-      .order("due_at", { ascending: filter === "pending" });
-    setReminders(data ?? []);
+    setLoading(true);
+    if (filter === "completed") {
+      const { data } = await supabase
+        .from("reminders")
+        .select("*")
+        .eq("status", "completed")
+        .order("due_at", { ascending: false })
+        .limit(50);
+      setReminders(data ?? []);
+    } else {
+      const { data } = await supabase
+        .from("reminders")
+        .select("*")
+        .eq("status", "pending")
+        .order("due_at", { ascending: true });
+      
+      const now = new Date();
+      const todayStart = startOfDay(now);
+      const tomorrowStart = new Date(todayStart);
+      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+      const filtered = (data ?? []).filter((r) => {
+        const due = new Date(r.due_at);
+        if (filter === "overdue") return isBefore(due, todayStart);
+        if (filter === "today") return isToday(due);
+        return due >= tomorrowStart; // upcoming
+      });
+      setReminders(filtered);
+    }
     setLoading(false);
   };
 
-  useEffect(() => { setLoading(true); load(); }, [filter]);
+  useEffect(() => { load(); }, [filter]);
 
   const complete = async (id: string) => {
     await supabase.from("reminders").update({ status: "completed" }).eq("id", id);
@@ -39,25 +72,27 @@ export default function Reminders() {
     load();
   };
 
-  const isOverdue = (due: string) => new Date(due) < new Date();
+  const isOverdue = (due: string) => isBefore(new Date(due), startOfDay(new Date()));
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold tracking-tight">Påmindelser</h1>
 
-      <div className="flex gap-2">
-        {(["pending", "completed"] as const).map((s) => (
+      <div className="flex gap-1.5 overflow-x-auto">
+        {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([key, label]) => (
           <button
-            key={s}
-            onClick={() => setFilter(s)}
+            key={key}
+            onClick={() => setFilter(key)}
             className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-              filter === s
-                ? "bg-primary text-primary-foreground"
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+              filter === key
+                ? key === "overdue"
+                  ? "bg-destructive text-destructive-foreground"
+                  : "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:text-foreground"
             )}
           >
-            {s === "pending" ? "Aktive" : "Fuldførte"}
+            {label}
           </button>
         ))}
       </div>
@@ -67,22 +102,52 @@ export default function Reminders() {
       ) : reminders.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            {filter === "pending" ? "Ingen aktive påmindelser" : "Ingen fuldførte påmindelser"}
+            {filter === "overdue" && "Ingen forfaldne påmindelser 🎉"}
+            {filter === "today" && "Ingen påmindelser i dag"}
+            {filter === "upcoming" && "Ingen kommende påmindelser"}
+            {filter === "completed" && "Ingen fuldførte påmindelser"}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
           {reminders.map((r) => (
-            <div key={r.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
+            <div
+              key={r.id}
+              className={cn(
+                "flex items-center gap-3 rounded-lg border bg-card p-3",
+                filter === "overdue" && "border-destructive/30"
+              )}
+            >
+              {/* Urgency dot */}
+              {filter === "overdue" && (
+                <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
+              )}
+              {filter === "today" && (
+                <span className="h-2 w-2 rounded-full bg-yellow-500 shrink-0" />
+              )}
+
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{r.title}</p>
                 {r.description && <p className="text-xs text-muted-foreground truncate">{r.description}</p>}
-                <p className={cn("text-xs mt-0.5", isOverdue(r.due_at) && filter === "pending" ? "text-status-urgent font-medium" : "text-muted-foreground")}>
-                  <Clock className="inline h-3 w-3 mr-1" />
-                  {formatDistanceToNow(new Date(r.due_at), { addSuffix: true, locale: da })}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className={cn(
+                    "text-xs",
+                    isOverdue(r.due_at) && filter !== "completed" ? "text-destructive font-medium" : "text-muted-foreground"
+                  )}>
+                    <Clock className="inline h-3 w-3 mr-1" />
+                    {formatDistanceToNow(new Date(r.due_at), { addSuffix: true, locale: da })}
+                  </p>
+                  {r.related_type === "lead" && (
+                    <Link
+                      to={`/leads/${r.related_id}`}
+                      className="text-xs text-primary hover:underline flex items-center gap-0.5"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Åbn lead
+                    </Link>
+                  )}
+                </div>
               </div>
-              {filter === "pending" ? (
+              {filter !== "completed" ? (
                 <Button variant="ghost" size="icon" onClick={() => complete(r.id)} className="shrink-0 h-8 w-8">
                   <Check className="h-4 w-4" />
                 </Button>
