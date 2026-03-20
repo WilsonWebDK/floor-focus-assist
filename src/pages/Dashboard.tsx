@@ -29,7 +29,15 @@ export default function Dashboard() {
     load();
   }, []);
 
-  const newLeads = leads.filter((l) => l.status === "new");
+  // Sort webhook leads (non-manual) to top
+  const newLeads = leads
+    .filter((l) => l.status === "new")
+    .sort((a, b) => {
+      const aIsWebhook = a.source !== "manual" ? 0 : 1;
+      const bIsWebhook = b.source !== "manual" ? 0 : 1;
+      if (aIsWebhook !== bIsWebhook) return aIsWebhook - bIsWebhook;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
   const urgentLeads = leads.filter((l) => l.urgency_flag);
   const needsQualification = leads.filter((l) => l.status === "needs_qualification" || l.missing_info_summary);
   const todayReminders = reminders.filter((r) => {
