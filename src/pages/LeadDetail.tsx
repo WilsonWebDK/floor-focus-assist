@@ -5,6 +5,7 @@ import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import type { Enums } from "@/integrations/supabase/types";
 import StatusBadge from "@/components/StatusBadge";
 import CommunicationTimeline from "@/components/CommunicationTimeline";
+import LeadAiPanel from "@/components/LeadAiPanel";
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
