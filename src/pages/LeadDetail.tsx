@@ -247,7 +247,7 @@ export default function LeadDetail() {
             />
           </div>
           <div className="flex items-end gap-2">
-            {hasCalendarSync && lead.google_calendar_link && (
+            {hasCalendarSync && lead.google_calendar_link ? (
               <a
                 href={lead.google_calendar_link}
                 target="_blank"
@@ -257,10 +257,9 @@ export default function LeadDetail() {
                 <ExternalLink className="h-3.5 w-3.5" />
                 Åbn i kalender
               </a>
-            )}
-            {!hasCalendarSync && followupDate && (
+            ) : (
               <span className="text-xs text-muted-foreground py-2">
-                Kalendersynk kommer snart
+                Google Kalender-integration kommer snart — aktiver under <a href="/settings" className="text-primary hover:underline">Indstillinger</a>
               </span>
             )}
           </div>
