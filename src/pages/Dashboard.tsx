@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import DashboardWidget from "@/components/DashboardWidget";
 import StatusBadge from "@/components/StatusBadge";
-import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2 } from "lucide-react";
+import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2, Flame, Puzzle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
 
