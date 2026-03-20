@@ -14,7 +14,291 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      communication_logs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          direction: Database["public"]["Enums"]["comm_direction"]
+          followup_at: string | null
+          followup_needed: boolean | null
+          full_note: string | null
+          id: string
+          lead_id: string | null
+          summary: string
+          type: Database["public"]["Enums"]["comm_type"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          direction?: Database["public"]["Enums"]["comm_direction"]
+          followup_at?: string | null
+          followup_needed?: boolean | null
+          full_note?: string | null
+          id?: string
+          lead_id?: string | null
+          summary: string
+          type?: Database["public"]["Enums"]["comm_type"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          direction?: Database["public"]["Enums"]["comm_direction"]
+          followup_at?: string | null
+          followup_needed?: boolean | null
+          full_note?: string | null
+          id?: string
+          lead_id?: string | null
+          summary?: string
+          type?: Database["public"]["Enums"]["comm_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_logs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          general_notes: string | null
+          id: string
+          name: string
+          phone: string | null
+          postal_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          general_notes?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          postal_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          general_notes?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          postal_code?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          address: string | null
+          assigned_to: string | null
+          city: string | null
+          complexity_flag: boolean | null
+          created_at: string
+          created_by: string | null
+          doorsteps_count: number | null
+          elevator_info: string | null
+          email: string | null
+          floor_type: string | null
+          id: string
+          internal_notes: string | null
+          job_type: string | null
+          last_contacted_at: string | null
+          lead_message: string | null
+          missing_info_summary: string | null
+          name: string
+          next_followup_at: string | null
+          parking_info: string | null
+          phone: string | null
+          postal_code: string | null
+          source: Database["public"]["Enums"]["lead_source"]
+          square_meters: number | null
+          stairs_count: number | null
+          status: Database["public"]["Enums"]["lead_status"]
+          suggested_questions: string[] | null
+          treatment_preference: string | null
+          updated_at: string
+          urgency_flag: boolean | null
+        }
+        Insert: {
+          address?: string | null
+          assigned_to?: string | null
+          city?: string | null
+          complexity_flag?: boolean | null
+          created_at?: string
+          created_by?: string | null
+          doorsteps_count?: number | null
+          elevator_info?: string | null
+          email?: string | null
+          floor_type?: string | null
+          id?: string
+          internal_notes?: string | null
+          job_type?: string | null
+          last_contacted_at?: string | null
+          lead_message?: string | null
+          missing_info_summary?: string | null
+          name: string
+          next_followup_at?: string | null
+          parking_info?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          source?: Database["public"]["Enums"]["lead_source"]
+          square_meters?: number | null
+          stairs_count?: number | null
+          status?: Database["public"]["Enums"]["lead_status"]
+          suggested_questions?: string[] | null
+          treatment_preference?: string | null
+          updated_at?: string
+          urgency_flag?: boolean | null
+        }
+        Update: {
+          address?: string | null
+          assigned_to?: string | null
+          city?: string | null
+          complexity_flag?: boolean | null
+          created_at?: string
+          created_by?: string | null
+          doorsteps_count?: number | null
+          elevator_info?: string | null
+          email?: string | null
+          floor_type?: string | null
+          id?: string
+          internal_notes?: string | null
+          job_type?: string | null
+          last_contacted_at?: string | null
+          lead_message?: string | null
+          missing_info_summary?: string | null
+          name?: string
+          next_followup_at?: string | null
+          parking_info?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          source?: Database["public"]["Enums"]["lead_source"]
+          square_meters?: number | null
+          stairs_count?: number | null
+          status?: Database["public"]["Enums"]["lead_status"]
+          suggested_questions?: string[] | null
+          treatment_preference?: string | null
+          updated_at?: string
+          urgency_flag?: boolean | null
+        }
+        Relationships: []
+      }
+      reminders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_at: string
+          id: string
+          related_id: string
+          related_type: string
+          status: Database["public"]["Enums"]["reminder_status"]
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at: string
+          id?: string
+          related_id: string
+          related_type: string
+          status?: Database["public"]["Enums"]["reminder_status"]
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at?: string
+          id?: string
+          related_id?: string
+          related_type?: string
+          status?: Database["public"]["Enums"]["reminder_status"]
+          title?: string
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          can_do_carpentry: boolean | null
+          cities_served: string[] | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          general_notes: string | null
+          id: string
+          name: string
+          phone: string | null
+          price_level: string | null
+          quality_score: number | null
+          reliability_notes: string | null
+          skills: string[] | null
+          speaks_good_danish: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          can_do_carpentry?: boolean | null
+          cities_served?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          general_notes?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          price_level?: string | null
+          quality_score?: number | null
+          reliability_notes?: string | null
+          skills?: string[] | null
+          speaks_good_danish?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          can_do_carpentry?: boolean | null
+          cities_served?: string[] | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          general_notes?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          price_level?: string | null
+          quality_score?: number | null
+          reliability_notes?: string | null
+          skills?: string[] | null
+          speaks_good_danish?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +307,26 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      comm_direction: "inbound" | "outbound" | "internal"
+      comm_type: "phone_call" | "email" | "sms" | "meeting" | "note" | "other"
+      lead_source:
+        | "website_form"
+        | "quiz_funnel"
+        | "manual"
+        | "referral"
+        | "phone"
+        | "email"
+        | "other"
+      lead_status:
+        | "new"
+        | "needs_qualification"
+        | "contacted"
+        | "waiting_for_customer"
+        | "ready_for_pricing"
+        | "offer_sent"
+        | "won"
+        | "lost"
+      reminder_status: "pending" | "completed" | "snoozed" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +453,29 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      comm_direction: ["inbound", "outbound", "internal"],
+      comm_type: ["phone_call", "email", "sms", "meeting", "note", "other"],
+      lead_source: [
+        "website_form",
+        "quiz_funnel",
+        "manual",
+        "referral",
+        "phone",
+        "email",
+        "other",
+      ],
+      lead_status: [
+        "new",
+        "needs_qualification",
+        "contacted",
+        "waiting_for_customer",
+        "ready_for_pricing",
+        "offer_sent",
+        "won",
+        "lost",
+      ],
+      reminder_status: ["pending", "completed", "snoozed", "cancelled"],
+    },
   },
 } as const
