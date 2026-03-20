@@ -374,6 +374,71 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_logs: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          payload: Json
+          response_body: string | null
+          status_code: number | null
+          webhook_setting_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          payload: Json
+          response_body?: string | null
+          status_code?: number | null
+          webhook_setting_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          response_body?: string | null
+          status_code?: number | null
+          webhook_setting_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_webhook_setting_id_fkey"
+            columns: ["webhook_setting_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_settings: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          event_type: string
+          id: string
+          is_active: boolean | null
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          event_type: string
+          id?: string
+          is_active?: boolean | null
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          event_type?: string
+          id?: string
+          is_active?: boolean | null
+          webhook_url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

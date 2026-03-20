@@ -1,5 +1,6 @@
-import { CalendarDays, Mail, ChevronRight, Brain } from "lucide-react";
+import { CalendarDays, Mail, ChevronRight } from "lucide-react";
 import KnowledgeBase from "@/components/KnowledgeBase";
+import WebhookPanel from "@/components/WebhookPanel";
 
 const INTEGRATIONS = [
   {
@@ -63,6 +64,9 @@ export default function Settings() {
           ))}
         </div>
       </section>
+
+      {/* Webhooks */}
+      <WebhookPanel />
     </div>
   );
 }

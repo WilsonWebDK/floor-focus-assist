@@ -83,11 +83,18 @@ export default function LeadDetail() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const updateStatus = async (newStatus: string) => {
-    if (!id) return;
+    if (!id || !lead) return;
+    const oldStatus = lead.status;
     const { error } = await supabase.from("leads").update({ status: newStatus as any }).eq("id", id);
     if (error) { toast.error("Kunne ikke opdatere status"); return; }
     setLead((prev) => prev ? { ...prev, status: newStatus as any } : prev);
     toast.success(`Status ændret til ${LEAD_STATUS_LABELS[newStatus]}`);
+
+    // Fire webhooks
+    const eventType = newStatus === "won" ? "lead_won" : "status_changed";
+    supabase.functions.invoke("fire-webhook", {
+      body: { event_type: eventType, payload: { ...lead, status: newStatus, previous_status: oldStatus } },
+    }).catch((err) => console.error("Webhook fire failed:", err));
   };
 
   const saveEdits = async () => {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp, Users, Star } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,13 @@ interface SuggestedPrice {
   explanation?: string;
   missing_for_accuracy?: string;
   estimated_at?: string;
+}
+
+interface SupplierMatch {
+  supplier_id: string;
+  name: string;
+  score: number;
+  reason: string;
 }
 
 interface LeadAiPanelProps {
@@ -44,6 +51,8 @@ export default function LeadAiPanel({
 }: LeadAiPanelProps) {
   const [analyzing, setAnalyzing] = useState(false);
   const [estimating, setEstimating] = useState(false);
+  const [matching, setMatching] = useState(false);
+  const [supplierMatches, setSupplierMatches] = useState<SupplierMatch[]>([]);
   const [expanded, setExpanded] = useState(true);
 
   const runAnalysis = async () => {
@@ -72,6 +81,24 @@ export default function LeadAiPanel({
     }
     toast.success("Prisoverslag beregnet");
     onAnalyzed();
+  };
+
+  const runSupplierMatch = async () => {
+    setMatching(true);
+    const { data, error } = await supabase.functions.invoke("match-supplier", {
+      body: { lead_id: leadId },
+    });
+    setMatching(false);
+    if (error) {
+      toast.error("Leverandørmatch fejlede: " + error.message);
+      return;
+    }
+    setSupplierMatches(data?.matches ?? []);
+    if ((data?.matches ?? []).length === 0) {
+      toast.info(data?.message || "Ingen matches fundet");
+    } else {
+      toast.success("Leverandørmatch fundet");
+    }
   };
 
   const copyQuestion = (q: string) => {
@@ -126,18 +153,17 @@ export default function LeadAiPanel({
                   </span>
                 )}
                 {urgencyFlag && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-status-urgent/10 text-status-urgent px-2.5 py-0.5 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive px-2.5 py-0.5 text-xs font-medium">
                     <Flame className="h-3 w-3" /> Haster
                   </span>
                 )}
                 {complexityFlag && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-status-warning/10 text-status-warning px-2.5 py-0.5 text-xs font-medium">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 text-yellow-600 px-2.5 py-0.5 text-xs font-medium">
                     <Puzzle className="h-3 w-3" /> Kompleks
                   </span>
                 )}
               </div>
 
-              {/* Reasons */}
               {(aiAnalysisFlags?.urgency_reason || aiAnalysisFlags?.complexity_reason) && (
                 <div className="text-xs text-muted-foreground space-y-1 pl-1">
                   {aiAnalysisFlags?.urgency_reason && (
@@ -194,9 +220,9 @@ export default function LeadAiPanel({
                   <span className="text-xs font-medium text-muted-foreground">Prisoverslag</span>
                   <span className={cn(
                     "text-[10px] font-semibold uppercase rounded-full px-2 py-0.5",
-                    suggestedPrice.confidence === "høj" ? "bg-status-success/10 text-status-success" :
-                    suggestedPrice.confidence === "middel" ? "bg-status-warning/10 text-status-warning" :
-                    "bg-status-neutral/10 text-status-neutral"
+                    suggestedPrice.confidence === "høj" ? "bg-green-500/10 text-green-600" :
+                    suggestedPrice.confidence === "middel" ? "bg-yellow-500/10 text-yellow-600" :
+                    "bg-muted text-muted-foreground"
                   )}>
                     {suggestedPrice.confidence} sikkerhed
                   </span>
@@ -208,10 +234,50 @@ export default function LeadAiPanel({
                   <p className="text-xs text-muted-foreground">{suggestedPrice.explanation}</p>
                 )}
                 {suggestedPrice.missing_for_accuracy && (
-                  <p className="text-xs text-status-warning">
+                  <p className="text-xs text-yellow-600">
                     Mangler: {suggestedPrice.missing_for_accuracy}
                   </p>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Supplier matching */}
+          <div className="border-t pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runSupplierMatch}
+              disabled={matching}
+              className="w-full"
+            >
+              {matching ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Users className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Find bedste leverandør
+            </Button>
+
+            {supplierMatches.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {supplierMatches.map((m, i) => (
+                  <div key={m.supplier_id} className={cn(
+                    "rounded-lg p-3 space-y-1",
+                    i === 0 ? "bg-primary/5 border border-primary/20" : "bg-accent/30"
+                  )}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium flex items-center gap-1.5">
+                        {i === 0 && <Star className="h-3.5 w-3.5 text-primary fill-primary" />}
+                        {m.name}
+                      </span>
+                      <span className="text-xs font-medium bg-primary/10 text-primary rounded-full px-2 py-0.5">
+                        {m.score}/10
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{m.reason}</p>
+                  </div>
+                ))}
               </div>
             )}
           </div>
