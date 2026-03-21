@@ -47,10 +47,10 @@ export default function SalesTemplates() {
     }
     setSaving(true);
     if (editingId) {
-      await supabase.from("sales_templates").update({ name: name.trim(), content: content.trim() } as any).eq("id", editingId);
+      await supabase.from("sales_templates").update({ name: name.trim(), content: content.trim(), disclaimer: disclaimer.trim() || null } as any).eq("id", editingId);
       toast.success("Skabelon opdateret");
     } else {
-      await supabase.from("sales_templates").insert({ name: name.trim(), content: content.trim(), created_by: user?.id } as any);
+      await supabase.from("sales_templates").insert({ name: name.trim(), content: content.trim(), disclaimer: disclaimer.trim() || null, created_by: user?.id } as any);
       toast.success("Skabelon oprettet");
     }
     setSaving(false);
