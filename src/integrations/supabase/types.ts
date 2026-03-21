@@ -153,6 +153,7 @@ export type Database = {
           complexity_flag: boolean | null
           created_at: string
           created_by: string | null
+          customer_id: string | null
           doorsteps_count: number | null
           elevator_info: string | null
           email: string | null
@@ -191,6 +192,7 @@ export type Database = {
           complexity_flag?: boolean | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           doorsteps_count?: number | null
           elevator_info?: string | null
           email?: string | null
@@ -229,6 +231,7 @@ export type Database = {
           complexity_flag?: boolean | null
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           doorsteps_count?: number | null
           elevator_info?: string | null
           email?: string | null
@@ -258,7 +261,15 @@ export type Database = {
           updated_at?: string
           urgency_flag?: boolean | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reminders: {
         Row: {
@@ -301,6 +312,7 @@ export type Database = {
           content: string
           created_at: string | null
           created_by: string | null
+          disclaimer: string | null
           id: string
           is_active: boolean | null
           name: string
@@ -309,6 +321,7 @@ export type Database = {
           content: string
           created_at?: string | null
           created_by?: string | null
+          disclaimer?: string | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -317,6 +330,7 @@ export type Database = {
           content?: string
           created_at?: string | null
           created_by?: string | null
+          disclaimer?: string | null
           id?: string
           is_active?: boolean | null
           name?: string

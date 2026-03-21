@@ -37,6 +37,7 @@ const EVENT_TYPES: Record<string, string> = {
   lead_created: "Lead oprettet",
   lead_won: "Lead vundet",
   status_changed: "Status ændret",
+  supplier_availability_request: "Leverandør tilgængelighed",
 };
 
 const FIELD_MAPPING = [

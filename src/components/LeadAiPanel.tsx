@@ -139,19 +139,23 @@ export default function LeadAiPanel({
     onAnalyzed();
   };
 
-  const requestAvailability = async (supplierName: string) => {
-    const { error } = await supabase.from("reminders").insert({
-      title: `Tjek tilgængelighed: ${supplierName}`,
-      due_at: new Date().toISOString(),
-      related_id: leadId,
-      related_type: "lead",
-      created_by: user?.id,
+  const requestAvailability = async (match: SupplierMatch) => {
+    const { error } = await supabase.functions.invoke("fire-webhook", {
+      body: {
+        event_type: "supplier_availability_request",
+        payload: {
+          supplier_name: match.name,
+          supplier_id: match.supplier_id,
+          lead_id: leadId,
+          lead_summary: `Lead: ${leadId}`,
+        },
+      },
     });
     if (error) {
-      toast.error("Kunne ikke oprette påmindelse");
+      toast.error("Kunne ikke sende forespørgsel");
       return;
     }
-    toast.success("Påmindelse oprettet: Tjek tilgængelighed");
+    toast.success("Tilgængelighedsforespørgsel sendt via webhook");
   };
 
   const copyQuestion = (q: string) => {
@@ -329,7 +333,7 @@ export default function LeadAiPanel({
                         variant="outline"
                         size="sm"
                         className="mt-1.5 h-7 text-xs"
-                        onClick={() => requestAvailability(m.name)}
+                        onClick={() => requestAvailability(m)}
                       >
                         <Bell className="h-3 w-3 mr-1" />
                         Anmod om tilgængelighed

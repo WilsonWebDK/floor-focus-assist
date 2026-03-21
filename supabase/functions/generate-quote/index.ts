@@ -63,7 +63,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "Du er en professionel salgsskribent for en dansk gulvslibningsvirksomhed. Forbedre den følgende skabelon til et professionelt og venligt tilbud. Behold alle fakta uændrede. Skriv på dansk. Returner kun den færdige tekst.",
+            content: "Du er en professionel salgsskribent for en dansk gulvslibningsvirksomhed. Forbedre den følgende skabelon til et professionelt og venligt tilbud. Behold alle fakta og priser UÆNDREDE. Du må IKKE ændre nogen tal eller priser. Skriv på dansk. Returner kun den færdige tekst.",
           },
           {
             role: "user",
@@ -111,7 +111,13 @@ serve(async (req) => {
     const toolCall = aiResult.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) throw new Error("No tool call in AI response");
 
-    const { quote_text } = JSON.parse(toolCall.function.arguments);
+    let { quote_text } = JSON.parse(toolCall.function.arguments);
+
+    // Append disclaimer verbatim (never passed through AI)
+    const disclaimer = template.disclaimer as string | null;
+    if (disclaimer && disclaimer.trim()) {
+      quote_text = quote_text + "\n\n---\n" + disclaimer.trim();
+    }
 
     // Save to lead
     await supabase.from("leads").update({ quote_content: quote_text }).eq("id", lead_id);

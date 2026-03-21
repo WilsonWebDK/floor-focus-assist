@@ -13,6 +13,7 @@ interface SalesTemplate {
   id: string;
   name: string;
   content: string;
+  disclaimer: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -26,6 +27,7 @@ export default function SalesTemplates() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
+  const [disclaimer, setDisclaimer] = useState("");
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -45,10 +47,10 @@ export default function SalesTemplates() {
     }
     setSaving(true);
     if (editingId) {
-      await supabase.from("sales_templates").update({ name: name.trim(), content: content.trim() } as any).eq("id", editingId);
+      await supabase.from("sales_templates").update({ name: name.trim(), content: content.trim(), disclaimer: disclaimer.trim() || null } as any).eq("id", editingId);
       toast.success("Skabelon opdateret");
     } else {
-      await supabase.from("sales_templates").insert({ name: name.trim(), content: content.trim(), created_by: user?.id } as any);
+      await supabase.from("sales_templates").insert({ name: name.trim(), content: content.trim(), disclaimer: disclaimer.trim() || null, created_by: user?.id } as any);
       toast.success("Skabelon oprettet");
     }
     setSaving(false);
@@ -76,6 +78,7 @@ export default function SalesTemplates() {
     setEditingId(t.id);
     setName(t.name);
     setContent(t.content);
+    setDisclaimer(t.disclaimer || "");
     setShowForm(true);
   };
 
@@ -84,6 +87,7 @@ export default function SalesTemplates() {
     setEditingId(null);
     setName("");
     setContent("");
+    setDisclaimer("");
   };
 
   return (
@@ -115,6 +119,16 @@ export default function SalesTemplates() {
               className="mt-1 font-mono text-xs"
             />
             <p className="text-[11px] text-muted-foreground mt-1">{PLACEHOLDER_HINTS}</p>
+          </div>
+          <div>
+            <Label className="text-xs">Juridisk disclaimer (tilføjes uændret til tilbud)</Label>
+            <Textarea
+              value={disclaimer}
+              onChange={(e) => setDisclaimer(e.target.value)}
+              placeholder="F.eks. Prisen er ekskl. moms. Tilbuddet er gældende i 30 dage..."
+              rows={3}
+              className="mt-1 text-xs"
+            />
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={resetForm}>Annuller</Button>
