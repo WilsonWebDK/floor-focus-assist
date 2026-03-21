@@ -1,114 +1,106 @@
 
 
-# Phase 3 Complete: Agentic Polish
+# Phase 4: Architectural Fixes & Automation
 
 ## Overview
-Priority dashboard with scoring, sales template/quote generator, webhook data mapping, auto supplier match, and cleanup of "Coming Soon" placeholders.
+Five targeted fixes: scalable dashboard queries, lead-to-customer lifecycle, deterministic pricing, automated supplier outreach, and one-click call logging.
 
 ---
 
-## 1. Database Migration
+## 1. Dashboard Server-Side Filtering (`src/pages/Dashboard.tsx`)
 
-```sql
--- Sales templates table
-CREATE TABLE public.sales_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  content TEXT NOT NULL,
-  is_active BOOLEAN DEFAULT true,
-  created_by UUID,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-ALTER TABLE public.sales_templates ENABLE ROW LEVEL SECURITY;
--- RLS: authenticated full CRUD
+Replace the single `leads` query with `.limit(50)` with three targeted queries:
 
--- New lead fields
-ALTER TABLE public.leads
-  ADD COLUMN IF NOT EXISTS is_priority BOOLEAN DEFAULT false,
-  ADD COLUMN IF NOT EXISTS quote_content TEXT;
+```text
+Query 1: leads WHERE status = 'new' ORDER BY created_at DESC
+Query 2: leads WHERE urgency_flag = true AND status NOT IN ('won','lost') ORDER BY created_at DESC
+Query 3: leads WHERE next_followup_at >= today_start AND next_followup_at < tomorrow_start
 ```
 
----
-
-## 2. AI Priority Dashboard (`src/pages/Dashboard.tsx`)
-
-Replace the current "Nye leads" list with a **Priority Feed**:
-- Calculate priority score per lead: `urgency_flag` (+3), `complexity_flag` (+1), age > 2h with status "new" (+2), age > 24h (+3)
-- Sort all non-closed leads by score descending
-- Leads with score >= 3 get a pulsing red dot indicator
-- Each card shows a one-line "Agent Recommendation" derived from `ai_analysis_flags` (e.g. urgency_reason or complexity_reason)
-- Leads older than 24h with status "new" show a "Kritisk opfølgning" badge
-- Keep existing widgets (Haster, Opfølgning, Påmindelser) but add the Priority Feed as the primary section
+Remove client-side filtering for `newLeads`, `urgentLeads`, and `followUpsToday`. Keep reminders query as-is. Update `PriorityFeed` to receive the union of these three sets (deduplicated) instead of a monolithic leads array.
 
 ---
 
-## 3. Sales Templates & Quote Generator
+## 2. Lead → Customer Lifecycle
 
-### Settings Page (`src/pages/Settings.tsx`)
-- New "Salgsskabeloner" section with:
-  - List existing templates (name, active toggle, edit/delete)
-  - Create/edit form: name + content textarea with placeholder hints (`{{customer_name}}`, `{{job_type}}`, `{{estimated_price}}`, `{{suggested_treatment}}`, `{{square_meters}}`, `{{city}}`)
-  - One template marked as "active" at a time
+**Database migration:**
+- Add `customer_id UUID REFERENCES customers(id)` to `leads` table
+- Create a DB function + trigger: when `leads.status` changes to `'won'`, upsert into `customers` (match on email or phone), then set `leads.customer_id` to the customer ID
 
-### New Edge Function: `generate-quote`
-- Receives `lead_id`
-- Fetches lead data + active sales template
-- Merges placeholders with lead data
-- Sends to Gemini 2.5 Flash to refine tone and fill gaps
-- Returns polished quote text
-- Saves to `leads.quote_content`
-
-### LeadDetail (`src/pages/LeadDetail.tsx`)
-- New "Generér tilbud" button in the AI panel
-- Shows generated quote in a styled text block with copy-to-clipboard
-- If `quote_content` exists, show it on reload
-- No PDF generation (text-based quote for email/WhatsApp)
+**LeadDetail.tsx:**
+- After `updateStatus('won')`, show a toast linking to the customer record
+- Display `customer_id` link in DetailView if set
 
 ---
 
-## 4. Webhook Data Mapping (`src/components/WebhookPanel.tsx`)
+## 3. Deterministic Pricing (`estimate-price/index.ts`)
 
-Add a "Feltmapping" section in the incoming webhooks area:
-- Static table showing Elementor form field names → leads table columns
-- Fields: name, phone, email, address, city, postal_code, job_type, floor_type, square_meters, lead_message
-- Instructional text explaining how to map fields in Make.com's HTTP module
+Move math out of the AI prompt. In the edge function TypeScript:
 
----
+```text
+1. Fetch knowledge_documents for base pricing rules (existing RAG)
+2. Calculate deterministically:
+   - base_price = rate_per_sqm * square_meters
+   - stair_surcharge = stairs_count * STAIR_RATE
+   - doorstep_surcharge = doorsteps_count * DOORSTEP_RATE
+   - parking_surcharge (if parking_info indicates difficulty)
+   - elevator_surcharge (if no elevator in multi-story)
+3. Send the CALCULATED price + lead context to AI ONLY for:
+   - Formatting the explanation text
+   - Flagging missing info
+   - Confidence assessment
+4. price_min/price_max derived from deterministic calc ± margin
+```
 
-## 5. Automated Supplier Match (`src/components/LeadAiPanel.tsx`)
+Update `generate-quote/index.ts`: append any `disclaimer` field from the active `sales_templates` record verbatim after the AI-refined quote text (never passed through AI).
 
-- On component mount, if no supplier matches are cached, auto-run `match-supplier`
-- Show results inline (already have the UI for this)
-- Add a "Anmod om tilgængelighed" button on the top match that creates a reminder linked to the lead with title "Tjek tilgængelighed: {supplier_name}"
-
----
-
-## 6. Cleanup & Polish
-
-- **Remove "Kommer snart" placeholders** from Settings integrations section (Google Calendar, Gmail) — keep the cards but remove the badge text, replace with "Ikke tilsluttet" neutral state
-- **Internal notes**: Make the textarea auto-expanding with min 4 rows in edit mode
-- **Estimate-price fix**: Update the edge function prompt to explicitly list `doorsteps_count`, `parking_info`, and `elevator_info` as price-increasing factors
-
----
-
-## 7. Implementation Order
-
-1. Database migration (sales_templates table, new lead fields)
-2. Priority Dashboard rewrite
-3. Sales Templates UI in Settings
-4. `generate-quote` edge function
-5. LeadDetail quote button integration
-6. Webhook data mapping table
-7. Auto supplier match + "Anmod om tilgængelighed"
-8. Cleanup: remove Coming Soon badges, expand internal_notes, fix estimate-price prompt
+**Database migration:** Add `disclaimer TEXT` column to `sales_templates`. Update `SalesTemplates.tsx` to include a disclaimer textarea.
 
 ---
 
-## Technical Notes
+## 4. Automated Supplier Outreach (`LeadAiPanel.tsx`)
 
-- All AI calls use `google/gemini-2.5-flash` via Lovable AI Gateway
-- Quote generation uses tool calling for structured output (quote_text field)
-- Priority score is calculated client-side from existing lead fields — no new edge function needed
-- The pulsing red indicator uses a CSS animation (`animate-pulse`) with `bg-red-500`
-- Sales templates stored in DB with RLS; no file storage needed
+Replace `requestAvailability()` which inserts a reminder with a call to:
+
+```text
+supabase.functions.invoke("fire-webhook", {
+  body: {
+    event_type: "supplier_availability_request",
+    payload: { supplier_name, supplier_phone, supplier_email, lead summary }
+  }
+})
+```
+
+Add `"supplier_availability_request"` to the `EVENT_TYPES` map in `WebhookPanel.tsx` so users can configure a Make.com webhook URL for this event.
+
+This allows Make.com to send an automated SMS/email to the supplier.
+
+---
+
+## 5. One-Click Call Logging (`LeadDetail.tsx`)
+
+Add a prominent "Log opkald" button next to the phone number in the quick contact section. On click:
+
+1. Instantly insert a `communication_logs` record: `type: 'phone_call'`, `direction: 'outbound'`, `summary: 'Udgående opkald'`, `lead_id`, `created_by`
+2. Update `leads.last_contacted_at` to now
+3. Open an inline Popover (using existing `@/components/ui/popover`) anchored to the button with:
+   - A small textarea for an optional note (updates the comm log summary)
+   - A date input for `next_followup_at`
+   - A "Gem" button to save the note + followup
+4. Toast confirmation immediately on click (before popover interaction)
+
+---
+
+## Implementation Order
+
+1. Database migration: `customer_id` on leads, trigger for won→customer upsert, `disclaimer` on sales_templates
+2. Dashboard.tsx: three server-side queries, remove `.limit(50)` filtering
+3. PriorityFeed.tsx: accept pre-filtered leads
+4. estimate-price edge function: deterministic math + AI formatting only
+5. generate-quote edge function: append disclaimer verbatim
+6. SalesTemplates.tsx: add disclaimer field
+7. LeadAiPanel.tsx: replace reminder insert with webhook fire
+8. WebhookPanel.tsx: add supplier_availability_request event type
+9. LeadDetail.tsx: one-click call log with popover
+10. LeadDetail.tsx: show customer link when won
 
