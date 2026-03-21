@@ -78,6 +78,7 @@ export default function SalesTemplates() {
     setEditingId(t.id);
     setName(t.name);
     setContent(t.content);
+    setDisclaimer(t.disclaimer || "");
     setShowForm(true);
   };
 
@@ -86,6 +87,7 @@ export default function SalesTemplates() {
     setEditingId(null);
     setName("");
     setContent("");
+    setDisclaimer("");
   };
 
   return (
