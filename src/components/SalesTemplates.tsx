@@ -27,6 +27,7 @@ export default function SalesTemplates() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
+  const [disclaimer, setDisclaimer] = useState("");
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
