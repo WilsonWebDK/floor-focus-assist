@@ -120,6 +120,16 @@ export default function SalesTemplates() {
             />
             <p className="text-[11px] text-muted-foreground mt-1">{PLACEHOLDER_HINTS}</p>
           </div>
+          <div>
+            <Label className="text-xs">Juridisk disclaimer (tilføjes uændret til tilbud)</Label>
+            <Textarea
+              value={disclaimer}
+              onChange={(e) => setDisclaimer(e.target.value)}
+              placeholder="F.eks. Prisen er ekskl. moms. Tilbuddet er gældende i 30 dage..."
+              rows={3}
+              className="mt-1 text-xs"
+            />
+          </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={resetForm}>Annuller</Button>
             <Button size="sm" onClick={save} disabled={saving}>
