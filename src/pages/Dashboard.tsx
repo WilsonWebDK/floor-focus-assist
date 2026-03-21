@@ -13,43 +13,63 @@ type Lead = Tables<"leads">;
 type Reminder = Tables<"reminders">;
 
 export default function Dashboard() {
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [newLeads, setNewLeads] = useState<Lead[]>([]);
+  const [urgentLeads, setUrgentLeads] = useState<Lead[]>([]);
+  const [followUpsToday, setFollowUpsToday] = useState<Lead[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [leadsRes, remindersRes] = await Promise.all([
-        supabase.from("leads").select("*").order("created_at", { ascending: false }).limit(50),
-        supabase.from("reminders").select("*").eq("status", "pending").order("due_at", { ascending: true }).limit(20),
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const [newRes, urgentRes, followupRes, remindersRes] = await Promise.all([
+        supabase
+          .from("leads")
+          .select("*")
+          .eq("status", "new")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("leads")
+          .select("*")
+          .eq("urgency_flag", true)
+          .not("status", "in", '("won","lost")')
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("leads")
+          .select("*")
+          .gte("next_followup_at", today.toISOString())
+          .lt("next_followup_at", tomorrow.toISOString()),
+        supabase
+          .from("reminders")
+          .select("*")
+          .eq("status", "pending")
+          .order("due_at", { ascending: true })
+          .limit(20),
       ]);
-      setLeads(leadsRes.data ?? []);
+
+      setNewLeads(newRes.data ?? []);
+      setUrgentLeads(urgentRes.data ?? []);
+      setFollowUpsToday(followupRes.data ?? []);
       setReminders(remindersRes.data ?? []);
       setLoading(false);
     }
     load();
   }, []);
 
-  const newLeads = leads
-    .filter((l) => l.status === "new")
-    .sort((a, b) => {
-      const aIsWebhook = a.source !== "manual" ? 0 : 1;
-      const bIsWebhook = b.source !== "manual" ? 0 : 1;
-      if (aIsWebhook !== bIsWebhook) return aIsWebhook - bIsWebhook;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-  const urgentLeads = leads.filter((l) => l.urgency_flag);
   const todayReminders = reminders.filter((r) => {
     const due = new Date(r.due_at);
     const now = new Date();
     return due.toDateString() === now.toDateString();
   });
-  const followUpsToday = leads.filter((l) => {
-    if (!l.next_followup_at) return false;
-    const followup = new Date(l.next_followup_at);
-    const now = new Date();
-    return followup.toDateString() === now.toDateString();
-  });
+
+  // Deduplicate leads for PriorityFeed
+  const allLeadsMap = new Map<string, Lead>();
+  [...newLeads, ...urgentLeads, ...followUpsToday].forEach((l) => allLeadsMap.set(l.id, l));
+  const allLeads = Array.from(allLeadsMap.values());
 
   if (loading) {
     return (
@@ -162,10 +182,10 @@ export default function Dashboard() {
       </div>
 
       {/* Priority Feed */}
-      <PriorityFeed leads={leads} />
+      <PriorityFeed leads={allLeads} />
 
       {/* Empty state */}
-      {leads.length === 0 && (
+      {allLeads.length === 0 && (
         <div className="rounded-lg border bg-card p-8 text-center">
           <CheckCircle2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">

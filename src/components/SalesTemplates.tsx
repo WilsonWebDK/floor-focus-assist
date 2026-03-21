@@ -13,6 +13,7 @@ interface SalesTemplate {
   id: string;
   name: string;
   content: string;
+  disclaimer: string | null;
   is_active: boolean;
   created_at: string;
 }

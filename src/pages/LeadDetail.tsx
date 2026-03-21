@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import type { Enums } from "@/integrations/supabase/types";
@@ -25,6 +25,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   ArrowLeft,
   Phone,
   Mail,
@@ -36,6 +41,8 @@ import {
   Trash2,
   CalendarDays,
   ExternalLink,
+  PhoneCall,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
@@ -65,6 +72,12 @@ export default function LeadDetail() {
   // Follow-up date
   const [followupDate, setFollowupDate] = useState("");
 
+  // One-click call log
+  const [callLogId, setCallLogId] = useState<string | null>(null);
+  const [callNote, setCallNote] = useState("");
+  const [callFollowup, setCallFollowup] = useState("");
+  const [savingCallNote, setSavingCallNote] = useState(false);
+
   const loadData = useCallback(async () => {
     if (!id) return;
     const [leadRes, commRes] = await Promise.all([
@@ -89,6 +102,16 @@ export default function LeadDetail() {
     if (error) { toast.error("Kunne ikke opdatere status"); return; }
     setLead((prev) => prev ? { ...prev, status: newStatus as any } : prev);
     toast.success(`Status ændret til ${LEAD_STATUS_LABELS[newStatus]}`);
+
+    // If won, show customer link toast
+    if (newStatus === "won") {
+      // Re-fetch lead to get customer_id set by trigger
+      const { data: updated } = await supabase.from("leads").select("customer_id").eq("id", id).maybeSingle();
+      if (updated?.customer_id) {
+        setLead((prev) => prev ? { ...prev, customer_id: updated.customer_id } : prev);
+        toast.success("Kunde oprettet automatisk!", { duration: 5000 });
+      }
+    }
 
     // Fire webhooks
     const eventType = newStatus === "won" ? "lead_won" : "status_changed";
@@ -154,6 +177,51 @@ export default function LeadDetail() {
     loadData();
   };
 
+  // One-click call log
+  const logCall = async () => {
+    if (!id) return;
+    const { data, error } = await supabase.from("communication_logs").insert({
+      lead_id: id,
+      type: "phone_call" as Enums<"comm_type">,
+      direction: "outbound" as Enums<"comm_direction">,
+      summary: "Udgående opkald",
+      created_by: user?.id,
+    }).select("id").single();
+
+    if (error) { toast.error("Kunne ikke logge opkald"); return; }
+    
+    // Update last_contacted_at
+    await supabase.from("leads").update({ last_contacted_at: new Date().toISOString() }).eq("id", id);
+    setLead((prev) => prev ? { ...prev, last_contacted_at: new Date().toISOString() } : prev);
+    
+    setCallLogId(data.id);
+    setCallNote("");
+    setCallFollowup("");
+    toast.success("Opkald logget");
+    loadData();
+  };
+
+  const saveCallDetails = async () => {
+    if (!callLogId) return;
+    setSavingCallNote(true);
+    
+    if (callNote.trim()) {
+      await supabase.from("communication_logs").update({ summary: `Udgående opkald: ${callNote.trim()}` }).eq("id", callLogId);
+    }
+    
+    if (callFollowup && id) {
+      const value = new Date(callFollowup).toISOString();
+      await supabase.from("leads").update({ next_followup_at: value }).eq("id", id);
+      setFollowupDate(callFollowup);
+      setLead((prev) => prev ? { ...prev, next_followup_at: value } : prev);
+    }
+
+    setSavingCallNote(false);
+    setCallLogId(null);
+    toast.success("Detaljer gemt");
+    loadData();
+  };
+
   const deleteLead = async () => {
     if (!id || !confirm("Er du sikker på at du vil slette denne lead?")) return;
     await supabase.from("leads").delete().eq("id", id);
@@ -175,6 +243,7 @@ export default function LeadDetail() {
   }
 
   const hasCalendarSync = !!lead.google_calendar_event_id;
+  const customerId = (lead as any).customer_id as string | null;
 
   return (
     <div className="space-y-6 pb-24">
@@ -201,13 +270,59 @@ export default function LeadDetail() {
         </div>
       </div>
 
-      {/* Quick contact */}
-      <div className="flex gap-2">
+      {/* Customer link */}
+      {customerId && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-center gap-2">
+          <Users className="h-4 w-4 text-primary" />
+          <span className="text-sm">Tilknyttet kunde</span>
+          <span className="text-xs text-muted-foreground ml-auto">ID: {customerId.slice(0, 8)}…</span>
+        </div>
+      )}
+
+      {/* Quick contact + one-click call */}
+      <div className="flex gap-2 flex-wrap">
         {lead.phone && (
           <a href={`tel:${lead.phone}`} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm hover:shadow-sm hover:border-secondary transition-all active:scale-95">
             <Phone className="h-4 w-4 text-primary" />
             {lead.phone}
           </a>
+        )}
+        {lead.phone && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="default" size="sm" className="gap-1.5" onClick={logCall}>
+                <PhoneCall className="h-4 w-4" />
+                Log opkald
+              </Button>
+            </PopoverTrigger>
+            {callLogId && (
+              <PopoverContent className="w-72 space-y-3" align="start">
+                <p className="text-xs font-medium text-muted-foreground">Opkald logget ✓</p>
+                <div>
+                  <Label className="text-xs">Note (valgfri)</Label>
+                  <Textarea
+                    value={callNote}
+                    onChange={(e) => setCallNote(e.target.value)}
+                    placeholder="Kort resumé..."
+                    rows={2}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Næste opfølgning</Label>
+                  <Input
+                    type="date"
+                    value={callFollowup}
+                    onChange={(e) => setCallFollowup(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <Button size="sm" className="w-full" onClick={saveCallDetails} disabled={savingCallNote}>
+                  {savingCallNote ? "Gemmer..." : "Gem"}
+                </Button>
+              </PopoverContent>
+            )}
+          </Popover>
         )}
         {lead.email && (
           <a href={`mailto:${lead.email}`} className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm hover:shadow-sm hover:border-secondary transition-all active:scale-95 truncate">
@@ -267,7 +382,7 @@ export default function LeadDetail() {
               </a>
             ) : (
               <span className="text-xs text-muted-foreground py-2">
-                Google Kalender-integration kommer snart — aktiver under <a href="/settings" className="text-primary hover:underline">Indstillinger</a>
+                Google Kalender — ikke tilsluttet
               </span>
             )}
           </div>

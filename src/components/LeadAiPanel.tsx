@@ -333,7 +333,7 @@ export default function LeadAiPanel({
                         variant="outline"
                         size="sm"
                         className="mt-1.5 h-7 text-xs"
-                        onClick={() => requestAvailability(m.name)}
+                        onClick={() => requestAvailability(m)}
                       >
                         <Bell className="h-3 w-3 mr-1" />
                         Anmod om tilgængelighed
