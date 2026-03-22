@@ -80,7 +80,7 @@ export default function Login() {
           onClick={() => setIsSignUp(!isSignUp)}
           className="mt-4 w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          {isSignUp ? "Har allerede en konto? Log ind" : "Ingen konto? Opret en"}
+          {isSignUp ? "Har allerede en konto? Log ind" : "Ingen konto? Opret én bruger"}
         </button>
       </div>
     </div>
