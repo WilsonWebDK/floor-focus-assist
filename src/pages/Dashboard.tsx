@@ -5,7 +5,8 @@ import type { Tables } from "@/integrations/supabase/types";
 import DashboardWidget from "@/components/DashboardWidget";
 import StatusBadge from "@/components/StatusBadge";
 import PriorityFeed from "@/components/PriorityFeed";
-import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2 } from "lucide-react";
+import { useIsAdmin } from "@/hooks/useUserRole";
+import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2, TrendingUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
 
@@ -18,6 +19,11 @@ export default function Dashboard() {
   const [followUpsToday, setFollowUpsToday] = useState<Lead[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
+  const isAdmin = useIsAdmin();
+
+  // Finance
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalProfit, setTotalProfit] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -55,6 +61,20 @@ export default function Dashboard() {
       setUrgentLeads(urgentRes.data ?? []);
       setFollowUpsToday(followupRes.data ?? []);
       setReminders(remindersRes.data ?? []);
+
+      // Finance: aggregate revenue/costs for won leads
+      const { data: wonLeads } = await supabase
+        .from("leads")
+        .select("revenue, actual_costs")
+        .eq("status", "won");
+
+      if (wonLeads) {
+        const rev = wonLeads.reduce((sum, l) => sum + (Number(l.revenue) || 0), 0);
+        const costs = wonLeads.reduce((sum, l) => sum + (Number(l.actual_costs) || 0), 0);
+        setTotalRevenue(rev);
+        setTotalProfit(rev - costs);
+      }
+
       setLoading(false);
     }
     load();
@@ -66,7 +86,6 @@ export default function Dashboard() {
     return due.toDateString() === now.toDateString();
   });
 
-  // Deduplicate leads for PriorityFeed
   const allLeadsMap = new Map<string, Lead>();
   [...newLeads, ...urgentLeads, ...followUpsToday].forEach((l) => allLeadsMap.set(l.id, l));
   const allLeads = Array.from(allLeadsMap.values());
@@ -89,6 +108,28 @@ export default function Dashboard() {
           {new Date().toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long" })}
         </p>
       </div>
+
+      {/* Finance summary — Admin only */}
+      {isAdmin && (totalRevenue > 0 || totalProfit !== 0) && (
+        <div className="rounded-lg border-l-4 border-status-success/40 bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-muted-foreground mb-2">
+            <TrendingUp className="h-4 w-4" />
+            <h3 className="text-sm font-medium">Økonomi (vundne leads)</h3>
+          </div>
+          <div className="flex gap-6">
+            <div>
+              <p className="text-xs text-muted-foreground">Omsætning</p>
+              <p className="text-lg font-bold tabular-nums">{totalRevenue.toLocaleString("da-DK")} kr.</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Profit</p>
+              <p className={`text-lg font-bold tabular-nums ${totalProfit >= 0 ? "text-status-success" : "text-destructive"}`}>
+                {totalProfit.toLocaleString("da-DK")} kr.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Widgets grid */}
       <div className="grid gap-4 sm:grid-cols-2">

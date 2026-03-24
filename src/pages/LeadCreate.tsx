@@ -13,7 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LEAD_SOURCE_LABELS } from "@/lib/constants";
+import { LEAD_SOURCE_LABELS, PARKING_STATUS_LABELS } from "@/lib/constants";
+import { isValidDanishPostalCode, getRegionFromPostalCode } from "@/lib/postalCodes";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import type { Enums } from "@/integrations/supabase/types";
@@ -37,14 +38,49 @@ export default function LeadCreate() {
     treatment_preference: "",
     lead_message: "",
     urgency_flag: false,
+    floor_level: "0",
+    has_elevator: false,
+    parking_status: "unknown",
+    floor_separation_type: "",
+    doorsteps_count: "0",
+    stairs_count: "0",
   });
 
-  const set = (key: string, value: any) => setForm((f) => ({ ...f, [key]: value }));
+  const [postalError, setPostalError] = useState("");
+  const [detectedRegion, setDetectedRegion] = useState<string | null>(null);
+
+  const set = (key: string, value: any) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    if (key === "postal_code") {
+      const code = String(value).trim();
+      if (code.length === 0) {
+        setPostalError("");
+        setDetectedRegion(null);
+      } else if (code.length === 4) {
+        if (isValidDanishPostalCode(code)) {
+          setPostalError("");
+          setDetectedRegion(getRegionFromPostalCode(code));
+        } else {
+          setPostalError("Ugyldigt dansk postnummer");
+          setDetectedRegion(null);
+        }
+      } else {
+        setPostalError("");
+        setDetectedRegion(null);
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) { toast.error("Navn er påkrævet"); return; }
+    if (form.postal_code && !isValidDanishPostalCode(form.postal_code)) {
+      toast.error("Ugyldigt dansk postnummer (4 cifre)");
+      return;
+    }
     setSaving(true);
+
+    const region = form.postal_code ? getRegionFromPostalCode(form.postal_code) : null;
 
     const { error } = await supabase.from("leads").insert({
       name: form.name.trim(),
@@ -61,7 +97,14 @@ export default function LeadCreate() {
       lead_message: form.lead_message || null,
       urgency_flag: form.urgency_flag,
       created_by: user?.id,
-    });
+      floor_level: Number(form.floor_level) || 0,
+      has_elevator: form.has_elevator,
+      parking_status: form.parking_status as any,
+      floor_separation_type: form.floor_separation_type || null,
+      doorsteps_count: Number(form.doorsteps_count) || 0,
+      stairs_count: Number(form.stairs_count) || 0,
+      category: region,
+    } as any);
 
     if (error) {
       toast.error("Kunne ikke oprette lead");
@@ -69,7 +112,6 @@ export default function LeadCreate() {
       return;
     }
 
-    // Get the created lead ID and trigger AI analysis in background
     const { data: newLeads } = await supabase
       .from("leads")
       .select("id")
@@ -140,8 +182,16 @@ export default function LeadCreate() {
               <Input value={form.address} onChange={(e) => set("address", e.target.value)} />
             </div>
             <div>
-              <Label className="text-xs">Postnummer</Label>
-              <Input value={form.postal_code} onChange={(e) => set("postal_code", e.target.value)} />
+              <Label className="text-xs">Postnummer (4 cifre)</Label>
+              <Input
+                value={form.postal_code}
+                onChange={(e) => set("postal_code", e.target.value)}
+                maxLength={4}
+                inputMode="numeric"
+                pattern="\d{4}"
+              />
+              {postalError && <p className="text-xs text-destructive mt-1">{postalError}</p>}
+              {detectedRegion && <p className="text-xs text-muted-foreground mt-1">Region: {detectedRegion}</p>}
             </div>
             <div>
               <Label className="text-xs">By</Label>
@@ -178,6 +228,45 @@ export default function LeadCreate() {
             <input type="checkbox" checked={form.urgency_flag} onChange={(e) => set("urgency_flag", e.target.checked)} className="rounded" />
             Markér som hastende
           </label>
+        </div>
+
+        <div className="rounded-lg border bg-card p-4 space-y-3">
+          <h2 className="text-sm font-semibold">Tekniske detaljer</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs">Etage</Label>
+              <Input value={form.floor_level} onChange={(e) => set("floor_level", e.target.value)} type="number" min="0" />
+            </div>
+            <div>
+              <Label className="text-xs">Etageadskillelse</Label>
+              <Input value={form.floor_separation_type} onChange={(e) => set("floor_separation_type", e.target.value)} placeholder="Beton, træ..." />
+            </div>
+            <div>
+              <Label className="text-xs">Antal trapper</Label>
+              <Input value={form.stairs_count} onChange={(e) => set("stairs_count", e.target.value)} type="number" min="0" />
+            </div>
+            <div>
+              <Label className="text-xs">Antal dørtrin</Label>
+              <Input value={form.doorsteps_count} onChange={(e) => set("doorsteps_count", e.target.value)} type="number" min="0" />
+            </div>
+            <div>
+              <Label className="text-xs">Parkeringsstatus</Label>
+              <Select value={form.parking_status} onValueChange={(v) => set("parking_status", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PARKING_STATUS_LABELS).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 text-sm pb-2">
+                <input type="checkbox" checked={form.has_elevator} onChange={(e) => set("has_elevator", e.target.checked)} className="rounded" />
+                Elevator tilgængelig
+              </label>
+            </div>
+          </div>
         </div>
 
         <Button type="submit" className="w-full" disabled={saving}>
