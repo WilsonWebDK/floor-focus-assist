@@ -44,3 +44,10 @@ export const COMM_DIRECTION_LABELS: Record<string, string> = {
   outbound: "Udgående",
   internal: "Intern",
 };
+
+export const PARKING_STATUS_LABELS: Record<string, string> = {
+  free: "Gratis",
+  paid: "Betalt",
+  permit_required: "Tilladelse påkrævet",
+  unknown: "Ukendt",
+};
