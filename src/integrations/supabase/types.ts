@@ -145,6 +145,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          actual_costs: number | null
           address: string | null
           ai_analysis_flags: Json | null
           assigned_to: string | null
@@ -157,9 +158,12 @@ export type Database = {
           doorsteps_count: number | null
           elevator_info: string | null
           email: string | null
+          floor_level: number | null
+          floor_separation_type: string | null
           floor_type: string | null
           google_calendar_event_id: string | null
           google_calendar_link: string | null
+          has_elevator: boolean | null
           id: string
           internal_notes: string | null
           is_priority: boolean | null
@@ -170,9 +174,11 @@ export type Database = {
           name: string
           next_followup_at: string | null
           parking_info: string | null
+          parking_status: Database["public"]["Enums"]["parking_status"] | null
           phone: string | null
           postal_code: string | null
           quote_content: string | null
+          revenue: number | null
           source: Database["public"]["Enums"]["lead_source"]
           square_meters: number | null
           stairs_count: number | null
@@ -184,6 +190,7 @@ export type Database = {
           urgency_flag: boolean | null
         }
         Insert: {
+          actual_costs?: number | null
           address?: string | null
           ai_analysis_flags?: Json | null
           assigned_to?: string | null
@@ -196,9 +203,12 @@ export type Database = {
           doorsteps_count?: number | null
           elevator_info?: string | null
           email?: string | null
+          floor_level?: number | null
+          floor_separation_type?: string | null
           floor_type?: string | null
           google_calendar_event_id?: string | null
           google_calendar_link?: string | null
+          has_elevator?: boolean | null
           id?: string
           internal_notes?: string | null
           is_priority?: boolean | null
@@ -209,9 +219,11 @@ export type Database = {
           name: string
           next_followup_at?: string | null
           parking_info?: string | null
+          parking_status?: Database["public"]["Enums"]["parking_status"] | null
           phone?: string | null
           postal_code?: string | null
           quote_content?: string | null
+          revenue?: number | null
           source?: Database["public"]["Enums"]["lead_source"]
           square_meters?: number | null
           stairs_count?: number | null
@@ -223,6 +235,7 @@ export type Database = {
           urgency_flag?: boolean | null
         }
         Update: {
+          actual_costs?: number | null
           address?: string | null
           ai_analysis_flags?: Json | null
           assigned_to?: string | null
@@ -235,9 +248,12 @@ export type Database = {
           doorsteps_count?: number | null
           elevator_info?: string | null
           email?: string | null
+          floor_level?: number | null
+          floor_separation_type?: string | null
           floor_type?: string | null
           google_calendar_event_id?: string | null
           google_calendar_link?: string | null
+          has_elevator?: boolean | null
           id?: string
           internal_notes?: string | null
           is_priority?: boolean | null
@@ -248,9 +264,11 @@ export type Database = {
           name?: string
           next_followup_at?: string | null
           parking_info?: string | null
+          parking_status?: Database["public"]["Enums"]["parking_status"] | null
           phone?: string | null
           postal_code?: string | null
           quote_content?: string | null
+          revenue?: number | null
           source?: Database["public"]["Enums"]["lead_source"]
           square_meters?: number | null
           stairs_count?: number | null
@@ -421,6 +439,24 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       webhook_logs: {
         Row: {
           created_at: string | null
@@ -491,9 +527,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
       comm_direction: "inbound" | "outbound" | "internal"
       comm_type: "phone_call" | "email" | "sms" | "meeting" | "note" | "other"
       lead_source:
@@ -513,6 +556,7 @@ export type Database = {
         | "offer_sent"
         | "won"
         | "lost"
+      parking_status: "free" | "paid" | "permit_required" | "unknown"
       reminder_status: "pending" | "completed" | "snoozed" | "cancelled"
     }
     CompositeTypes: {
@@ -641,6 +685,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
       comm_direction: ["inbound", "outbound", "internal"],
       comm_type: ["phone_call", "email", "sms", "meeting", "note", "other"],
       lead_source: [
@@ -662,6 +707,7 @@ export const Constants = {
         "won",
         "lost",
       ],
+      parking_status: ["free", "paid", "permit_required", "unknown"],
       reminder_status: ["pending", "completed", "snoozed", "cancelled"],
     },
   },

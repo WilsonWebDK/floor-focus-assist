@@ -11,8 +11,10 @@ import {
   LEAD_SOURCE_LABELS,
   COMM_TYPE_LABELS,
   COMM_DIRECTION_LABELS,
+  PARKING_STATUS_LABELS,
 } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,6 +45,8 @@ import {
   ExternalLink,
   PhoneCall,
   Users,
+  DollarSign,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
@@ -56,6 +60,7 @@ export default function LeadDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAdmin = useIsAdmin();
   const [lead, setLead] = useState<Lead | null>(null);
   const [commLogs, setCommLogs] = useState<CommLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +83,11 @@ export default function LeadDetail() {
   const [callFollowup, setCallFollowup] = useState("");
   const [savingCallNote, setSavingCallNote] = useState(false);
 
+  // Economic fields
+  const [editRevenue, setEditRevenue] = useState("");
+  const [editCosts, setEditCosts] = useState("");
+  const [savingEcon, setSavingEcon] = useState(false);
+
   const loadData = useCallback(async () => {
     if (!id) return;
     const [leadRes, commRes] = await Promise.all([
@@ -88,6 +98,8 @@ export default function LeadDetail() {
       setLead(leadRes.data);
       setEditData(leadRes.data);
       setFollowupDate(leadRes.data.next_followup_at ? leadRes.data.next_followup_at.slice(0, 10) : "");
+      setEditRevenue(leadRes.data.revenue != null ? String(leadRes.data.revenue) : "");
+      setEditCosts(leadRes.data.actual_costs != null ? String(leadRes.data.actual_costs) : "");
     }
     setCommLogs(commRes.data ?? []);
     setLoading(false);
@@ -103,9 +115,7 @@ export default function LeadDetail() {
     setLead((prev) => prev ? { ...prev, status: newStatus as any } : prev);
     toast.success(`Status ændret til ${LEAD_STATUS_LABELS[newStatus]}`);
 
-    // If won, show customer link toast
     if (newStatus === "won") {
-      // Re-fetch lead to get customer_id set by trigger
       const { data: updated } = await supabase.from("leads").select("customer_id").eq("id", id).maybeSingle();
       if (updated?.customer_id) {
         setLead((prev) => prev ? { ...prev, customer_id: updated.customer_id } : prev);
@@ -113,7 +123,6 @@ export default function LeadDetail() {
       }
     }
 
-    // Fire webhooks
     const eventType = newStatus === "won" ? "lead_won" : "status_changed";
     supabase.functions.invoke("fire-webhook", {
       body: { event_type: eventType, payload: { ...lead, status: newStatus, previous_status: oldStatus } },
@@ -138,6 +147,10 @@ export default function LeadDetail() {
       doorsteps_count: editData.doorsteps_count,
       parking_info: editData.parking_info,
       elevator_info: editData.elevator_info,
+      floor_level: (editData as any).floor_level,
+      has_elevator: (editData as any).has_elevator,
+      parking_status: (editData as any).parking_status,
+      floor_separation_type: (editData as any).floor_separation_type,
       urgency_flag: editData.urgency_flag,
       complexity_flag: editData.complexity_flag,
       internal_notes: editData.internal_notes,
@@ -148,6 +161,18 @@ export default function LeadDetail() {
     setEditing(false);
     setSaving(false);
     toast.success("Lead opdateret");
+  };
+
+  const saveEconomics = async () => {
+    if (!id) return;
+    setSavingEcon(true);
+    const revenue = editRevenue ? Number(editRevenue) : null;
+    const actual_costs = editCosts ? Number(editCosts) : null;
+    const { error } = await supabase.from("leads").update({ revenue, actual_costs }).eq("id", id);
+    if (error) { toast.error("Kunne ikke gemme økonomi"); setSavingEcon(false); return; }
+    setLead((prev) => prev ? { ...prev, revenue, actual_costs } : prev);
+    setSavingEcon(false);
+    toast.success("Økonomi opdateret");
   };
 
   const updateFollowup = async (date: string) => {
@@ -177,7 +202,6 @@ export default function LeadDetail() {
     loadData();
   };
 
-  // One-click call log
   const logCall = async () => {
     if (!id) return;
     const { data, error } = await supabase.from("communication_logs").insert({
@@ -189,11 +213,8 @@ export default function LeadDetail() {
     }).select("id").single();
 
     if (error) { toast.error("Kunne ikke logge opkald"); return; }
-    
-    // Update last_contacted_at
     await supabase.from("leads").update({ last_contacted_at: new Date().toISOString() }).eq("id", id);
     setLead((prev) => prev ? { ...prev, last_contacted_at: new Date().toISOString() } : prev);
-    
     setCallLogId(data.id);
     setCallNote("");
     setCallFollowup("");
@@ -204,18 +225,15 @@ export default function LeadDetail() {
   const saveCallDetails = async () => {
     if (!callLogId) return;
     setSavingCallNote(true);
-    
     if (callNote.trim()) {
       await supabase.from("communication_logs").update({ summary: `Udgående opkald: ${callNote.trim()}` }).eq("id", callLogId);
     }
-    
     if (callFollowup && id) {
       const value = new Date(callFollowup).toISOString();
       await supabase.from("leads").update({ next_followup_at: value }).eq("id", id);
       setFollowupDate(callFollowup);
       setLead((prev) => prev ? { ...prev, next_followup_at: value } : prev);
     }
-
     setSavingCallNote(false);
     setCallLogId(null);
     toast.success("Detaljer gemt");
@@ -243,7 +261,8 @@ export default function LeadDetail() {
   }
 
   const hasCalendarSync = !!lead.google_calendar_event_id;
-  const customerId = (lead as any).customer_id as string | null;
+  const customerId = lead.customer_id as string | null;
+  const profit = (lead.revenue ?? 0) - (lead.actual_costs ?? 0);
 
   return (
     <div className="space-y-6 pb-24">
@@ -300,22 +319,11 @@ export default function LeadDetail() {
                 <p className="text-xs font-medium text-muted-foreground">Opkald logget ✓</p>
                 <div>
                   <Label className="text-xs">Note (valgfri)</Label>
-                  <Textarea
-                    value={callNote}
-                    onChange={(e) => setCallNote(e.target.value)}
-                    placeholder="Kort resumé..."
-                    rows={2}
-                    className="mt-1"
-                  />
+                  <Textarea value={callNote} onChange={(e) => setCallNote(e.target.value)} placeholder="Kort resumé..." rows={2} className="mt-1" />
                 </div>
                 <div>
                   <Label className="text-xs">Næste opfølgning</Label>
-                  <Input
-                    type="date"
-                    value={callFollowup}
-                    onChange={(e) => setCallFollowup(e.target.value)}
-                    className="mt-1"
-                  />
+                  <Input type="date" value={callFollowup} onChange={(e) => setCallFollowup(e.target.value)} className="mt-1" />
                 </div>
                 <Button size="sm" className="w-full" onClick={saveCallDetails} disabled={savingCallNote}>
                   {savingCallNote ? "Gemmer..." : "Gem"}
@@ -353,6 +361,52 @@ export default function LeadDetail() {
         </div>
       </div>
 
+      {/* Economic Overview — Admin only */}
+      {isAdmin && (
+        <div className="rounded-lg border bg-card p-4 space-y-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-primary" />
+            Økonomi
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <Label className="text-xs">Omsætning (DKK)</Label>
+              <Input
+                type="number"
+                value={editRevenue}
+                onChange={(e) => setEditRevenue(e.target.value)}
+                placeholder="0"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Omkostninger (DKK)</Label>
+              <Input
+                type="number"
+                value={editCosts}
+                onChange={(e) => setEditCosts(e.target.value)}
+                placeholder="0"
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Profit (DKK)</Label>
+              <div className={cn(
+                "mt-1 flex items-center h-10 rounded-md border bg-muted px-3 text-sm font-semibold tabular-nums",
+                profit > 0 ? "text-status-success" : profit < 0 ? "text-destructive" : "text-muted-foreground"
+              )}>
+                {((Number(editRevenue) || 0) - (Number(editCosts) || 0)).toLocaleString("da-DK")} kr.
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={saveEconomics} disabled={savingEcon}>
+              {savingEcon ? "Gemmer..." : "Gem økonomi"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Follow-up & Calendar section */}
       <div className="rounded-lg border bg-card p-4 space-y-3">
         <h2 className="text-sm font-semibold flex items-center gap-2">
@@ -362,12 +416,7 @@ export default function LeadDetail() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <Label className="text-xs">Næste opfølgning</Label>
-            <Input
-              type="date"
-              value={followupDate}
-              onChange={(e) => updateFollowup(e.target.value)}
-              className="mt-1"
-            />
+            <Input type="date" value={followupDate} onChange={(e) => updateFollowup(e.target.value)} className="mt-1" />
           </div>
           <div className="flex items-end gap-2">
             {hasCalendarSync && lead.google_calendar_link ? (
@@ -500,8 +549,24 @@ function EditForm({ editData, setEditData }: { editData: Partial<Lead>; setEditD
       <div><Label className="text-xs">Behandling</Label><Input value={editData.treatment_preference ?? ""} onChange={(e) => setEditData({ ...editData, treatment_preference: e.target.value })} /></div>
       <div><Label className="text-xs">Antal trapper</Label><Input type="number" value={editData.stairs_count ?? 0} onChange={(e) => setEditData({ ...editData, stairs_count: Number(e.target.value) })} /></div>
       <div><Label className="text-xs">Antal dørtrin</Label><Input type="number" value={editData.doorsteps_count ?? 0} onChange={(e) => setEditData({ ...editData, doorsteps_count: Number(e.target.value) })} /></div>
-      <div><Label className="text-xs">Parkering</Label><Input value={editData.parking_info ?? ""} onChange={(e) => setEditData({ ...editData, parking_info: e.target.value })} /></div>
-      <div><Label className="text-xs">Elevator</Label><Input value={editData.elevator_info ?? ""} onChange={(e) => setEditData({ ...editData, elevator_info: e.target.value })} /></div>
+      <div><Label className="text-xs">Etage</Label><Input type="number" value={(editData as any).floor_level ?? 0} onChange={(e) => setEditData({ ...editData, floor_level: Number(e.target.value) } as any)} /></div>
+      <div>
+        <Label className="text-xs">Etageadskillelse</Label>
+        <Input value={(editData as any).floor_separation_type ?? ""} onChange={(e) => setEditData({ ...editData, floor_separation_type: e.target.value } as any)} placeholder="Beton, træ..." />
+      </div>
+      <div><Label className="text-xs">Parkering (note)</Label><Input value={editData.parking_info ?? ""} onChange={(e) => setEditData({ ...editData, parking_info: e.target.value })} /></div>
+      <div>
+        <Label className="text-xs">Parkeringsstatus</Label>
+        <Select value={(editData as any).parking_status ?? "unknown"} onValueChange={(v) => setEditData({ ...editData, parking_status: v } as any)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {Object.entries(PARKING_STATUS_LABELS).map(([v, l]) => (
+              <SelectItem key={v} value={v}>{l}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div><Label className="text-xs">Elevator (note)</Label><Input value={editData.elevator_info ?? ""} onChange={(e) => setEditData({ ...editData, elevator_info: e.target.value })} /></div>
       <div className="sm:col-span-2 flex gap-4">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={editData.urgency_flag ?? false} onChange={(e) => setEditData({ ...editData, urgency_flag: e.target.checked })} className="rounded" />
@@ -510,6 +575,10 @@ function EditForm({ editData, setEditData }: { editData: Partial<Lead>; setEditD
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={editData.complexity_flag ?? false} onChange={(e) => setEditData({ ...editData, complexity_flag: e.target.checked })} className="rounded" />
           Kompleks
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={(editData as any).has_elevator ?? false} onChange={(e) => setEditData({ ...editData, has_elevator: e.target.checked } as any)} className="rounded" />
+          Elevator
         </label>
       </div>
       <div className="sm:col-span-2">
@@ -538,8 +607,14 @@ function DetailView({ lead }: { lead: Lead }) {
       {lead.treatment_preference && <InfoRow label="Behandling" value={lead.treatment_preference} />}
       {(lead.stairs_count ?? 0) > 0 && <InfoRow label="Trapper" value={String(lead.stairs_count)} />}
       {(lead.doorsteps_count ?? 0) > 0 && <InfoRow label="Dørtrin" value={String(lead.doorsteps_count)} />}
+      {((lead as any).floor_level ?? 0) > 0 && <InfoRow label="Etage" value={String((lead as any).floor_level)} />}
+      {(lead as any).floor_separation_type && <InfoRow label="Etageadskillelse" value={(lead as any).floor_separation_type} />}
       {lead.parking_info && <InfoRow label="Parkering" value={lead.parking_info} />}
+      {(lead as any).parking_status && (lead as any).parking_status !== "unknown" && (
+        <InfoRow label="Parkeringsstatus" value={PARKING_STATUS_LABELS[(lead as any).parking_status] ?? (lead as any).parking_status} />
+      )}
       {lead.elevator_info && <InfoRow label="Elevator" value={lead.elevator_info} />}
+      {(lead as any).has_elevator && <InfoRow label="Elevator tilgængelig" value="Ja" />}
       {lead.lead_message && (
         <div>
           <span className="text-muted-foreground">Besked:</span>
