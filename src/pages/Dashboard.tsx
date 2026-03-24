@@ -110,7 +110,7 @@ export default function Dashboard() {
       </div>
 
       {/* Finance summary — Admin only */}
-      {isAdmin && (totalRevenue > 0 || totalProfit !== 0) && (
+      {isAdmin && (
         <div className="rounded-lg border-l-4 border-status-success/40 bg-card p-4 shadow-sm">
           <div className="flex items-center gap-2 text-muted-foreground mb-2">
             <TrendingUp className="h-4 w-4" />
