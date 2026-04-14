@@ -231,8 +231,13 @@ export default function LeadDetail() {
     }).select("id").single();
 
     if (error) { toast.error("Kunne ikke logge opkald"); return; }
-    await supabase.from("leads").update({ last_contacted_at: new Date().toISOString() }).eq("id", id);
-    setLead((prev) => prev ? { ...prev, last_contacted_at: new Date().toISOString() } : prev);
+    const updates: any = { last_contacted_at: new Date().toISOString() };
+    // Auto-transition new → contacted
+    if (lead?.status === "new") {
+      updates.status = "contacted";
+    }
+    await supabase.from("leads").update(updates).eq("id", id);
+    setLead((prev) => prev ? { ...prev, ...updates } : prev);
     setCallLogId(data.id);
     setCallNote("");
     setCallFollowup("");
