@@ -187,7 +187,7 @@ export default function LeadAiPanel({
   const applyAiSuggestions = async () => {
     if (!aiAnalysisFlags) return;
     setApplyingSuggestions(true);
-    const updates: Record<string, unknown> = {};
+    const updates: { square_meters?: number; floor_level?: number; has_elevator?: boolean } = {};
     if (aiAnalysisFlags.suggested_sqm != null && !squareMeters) {
       updates.square_meters = aiAnalysisFlags.suggested_sqm;
     }

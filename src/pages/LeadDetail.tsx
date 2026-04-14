@@ -544,6 +544,9 @@ export default function LeadDetail() {
         aiAnalysisFlags={(lead as any).ai_analysis_flags}
         suggestedPrice={(lead as any).suggested_price}
         quoteContent={(lead as any).quote_content}
+        squareMeters={lead.square_meters ?? null}
+        floorLevel={(lead as any).floor_level ?? null}
+        hasElevator={(lead as any).has_elevator ?? null}
         onAnalyzed={loadData}
       />
 
