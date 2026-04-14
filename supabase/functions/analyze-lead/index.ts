@@ -68,7 +68,13 @@ Kundedata:
 - Manglende info: ${lead.missing_info_summary || "ikke vurderet endnu"}
 ${knowledgeContext}
 
-Giv en detaljeret analyse med salgsstrategi. Brug viden fra forretningsdokumenterne hvis relevant.`;
+Giv en detaljeret analyse med salgsstrategi. Brug viden fra forretningsdokumenterne hvis relevant.
+
+Skriv også et professionelt, venligt emailudkast til kunden på dansk. Emailen skal:
+- Adressere kunden ved navn
+- Referere til deres specifikke opgave (gulvtype, m², behandling)
+- Nævne eventuelle tekniske forhold (etage, strøm, parkering) hvis relevant
+- Være klar til at sende (med hilsen fra virksomheden)`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -105,8 +111,9 @@ Giv en detaljeret analyse med salgsstrategi. Brug viden fra forretningsdokumente
                     description: "3-5 målrettede spørgsmål at stille kunden for at kvalificere leadet (dansk)",
                   },
                   missing_info_summary: { type: "string", description: "Kort opsummering af manglende information der er kritisk for prisberegning og planlægning (dansk)" },
+                  suggested_draft: { type: "string", description: "Professionelt emailudkast til kunden på dansk. Personaliseret med kundens navn, opgavetype, m² og tekniske detaljer. Klar til afsendelse med venlig hilsen." },
                 },
-                required: ["urgency_flag", "complexity_flag", "category", "complexity_analysis", "potential_challenges", "recommended_approach", "suggested_questions"],
+                required: ["urgency_flag", "complexity_flag", "category", "complexity_analysis", "potential_challenges", "recommended_approach", "suggested_questions", "suggested_draft"],
                 additionalProperties: false,
               },
             },
@@ -151,6 +158,7 @@ Giv en detaljeret analyse med salgsstrategi. Brug viden fra forretningsdokumente
         complexity_analysis: analysis.complexity_analysis || null,
         potential_challenges: analysis.potential_challenges || null,
         recommended_approach: analysis.recommended_approach || null,
+        suggested_draft: analysis.suggested_draft || null,
         analyzed_at: new Date().toISOString(),
       },
     };

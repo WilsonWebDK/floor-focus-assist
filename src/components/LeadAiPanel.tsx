@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp, Users, Star, FileText, Bell, ShieldAlert, Lightbulb, Route, BookOpen } from "lucide-react";
+import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp, Users, Star, FileText, Bell, ShieldAlert, Lightbulb, Route, BookOpen, Mail, Info } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ interface AiAnalysisFlags {
   complexity_analysis?: string;
   potential_challenges?: string;
   recommended_approach?: string;
+  suggested_draft?: string;
   analyzed_at?: string;
 }
 
@@ -279,6 +280,36 @@ export default function LeadAiPanel({
                     <Copy className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors shrink-0 mt-0.5" />
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* 4.5. Suggested email draft */}
+          {aiAnalysisFlags?.suggested_draft && (
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5" />
+                  Udkast til svar
+                </p>
+                <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground border-dashed flex items-center gap-1">
+                  <Info className="h-2.5 w-2.5" />
+                  Gmail afventer — kopiér manuelt
+                </Badge>
+              </div>
+              <div className="rounded-lg bg-accent/30 p-3 space-y-2">
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{aiAnalysisFlags.suggested_draft}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    navigator.clipboard.writeText(aiAnalysisFlags.suggested_draft!);
+                    toast.success("Email-udkast kopieret til udklipsholder");
+                  }}
+                >
+                  <Copy className="h-3 w-3 mr-1" /> Kopiér til udklipsholder
+                </Button>
               </div>
             </div>
           )}
