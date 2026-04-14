@@ -1,106 +1,88 @@
 
 
-# Phase 4: Architectural Fixes & Automation
+# Step 1: Technical Foundation & Missing Info Engine
 
-## Overview
-Five targeted fixes: scalable dashboard queries, lead-to-customer lifecycle, deterministic pricing, automated supplier outreach, and one-click call logging.
+## What already exists
+The `leads` table already has: `square_meters`, `floor_level`, `has_elevator`, `parking_status` (enum), `doorsteps_count`, `stairs_count`, `floor_separation_type`, `urgency_flag`, `job_type`, `floor_type`, `treatment_preference`. Several requested columns overlap with existing ones.
+
+## Plan
+
+### 1. Database Migration
+Add only the truly new columns to `leads`:
+- `power_13a_available` (boolean, default false)
+- `floor_history` (text) — previous treatments/history of the floor
+- `desired_look` (text) — customer's desired outcome
+- `urgency_status` (text) — freeform urgency description (supplements existing boolean `urgency_flag`)
+- `quality_expectation` (text) — customer's quality expectations
+- `time_requirement` (text) — timeline/scheduling constraints
+- `image_urls` (text[]) — array of image URLs from uploads or Elementor
+- `quiz_slug` (text, unique) — secure slug for quiz submissions
+- `missing_info_score` (integer, default 0) — computed in app logic (not generated column, to keep it simple)
+
+Skip columns that already exist: `square_meters`, `floor_level`, `has_elevator`, `parking_status`, `doorsteps_count`.
+
+### 2. Missing Info UI — LeadList badges
+Update `LeadList.tsx` to show small colored badges next to each lead indicating missing critical info:
+- No images → "Mangler billede" badge (red)
+- No `square_meters` → "Mangler m²" badge
+- No `job_type` → "Mangler opgavetype" badge
+- No `urgency_flag` set → "Mangler hast" badge
+
+Badges shown as small inline pills after the lead name.
+
+### 3. Missing Info Checklist — LeadDetail sidebar
+Add an "Informationsstatus" card in `LeadDetail.tsx` (above or below the Details section) with a visual checklist:
+- Billeder ✓/✗
+- Kvadratmeter ✓/✗
+- Opgavetype ✓/✗
+- Gulvtype ✓/✗
+- Hastegrad ✓/✗
+- Behandlingsønske ✓/✗
+
+Each item shows green check or red X. A progress bar at top shows completion percentage.
+
+### 4. Quick-Lead Mobile Button
+Add a floating action button (FAB) on `LeadList.tsx` that opens a minimal dialog with only: Name, Phone, Address. On submit, creates a lead with `source: 'phone'` and navigates to it. Optimized for mobile use during phone calls.
+
+### 5. LeadCreate & LeadDetail — New Fields
+- Update `LeadCreate.tsx` to include inputs for the new columns (power_13a, floor_history, desired_look, quality_expectation, time_requirement)
+- Update `EditForm` and `DetailView` in `LeadDetail.tsx` to display/edit these fields
+- Update `saveEdits` to persist the new fields
+
+### 6. PDF Quote Placeholder
+Add a "PDF Tilbud" button in `LeadDetail.tsx` (near the AI panel) with a tooltip: "Kommer snart — Google Slides integration". Button is disabled.
+
+### 7. Webhook Mapping Upgrade
+Update the existing webhook/lead creation endpoint to map incoming `m2` → `square_meters` and `file_upload` → `image_urls` fields from Elementor/Make.com payloads.
+
+### 8. Email Trigger (Quiz Link)
+- Generate `quiz_slug` (nanoid) automatically when a lead is created via Elementor webhook
+- Use the existing Lovable email infrastructure to send a transactional email containing a dynamic quiz link: `https://profgulve.lovable.app/?id=[quiz_slug]`
+- This fires from the webhook handler after lead creation
 
 ---
 
-## 1. Dashboard Server-Side Filtering (`src/pages/Dashboard.tsx`)
+## Technical details
 
-Replace the single `leads` query with `.limit(50)` with three targeted queries:
+### Files modified
+- **New migration SQL** — adds 8 columns to `leads`
+- `src/pages/LeadList.tsx` — missing info badges + Quick-Lead FAB
+- `src/pages/LeadDetail.tsx` — info checklist card, new field display/edit, PDF placeholder button
+- `src/pages/LeadCreate.tsx` — new field inputs
+- `src/lib/constants.ts` — no changes needed
+- Webhook edge function — field mapping update
+- Transactional email template — quiz link email (if email infra is ready)
 
-```text
-Query 1: leads WHERE status = 'new' ORDER BY created_at DESC
-Query 2: leads WHERE urgency_flag = true AND status NOT IN ('won','lost') ORDER BY created_at DESC
-Query 3: leads WHERE next_followup_at >= today_start AND next_followup_at < tomorrow_start
+### Migration SQL (approximate)
+```sql
+ALTER TABLE public.leads
+  ADD COLUMN IF NOT EXISTS power_13a_available boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS floor_history text,
+  ADD COLUMN IF NOT EXISTS desired_look text,
+  ADD COLUMN IF NOT EXISTS urgency_status text,
+  ADD COLUMN IF NOT EXISTS quality_expectation text,
+  ADD COLUMN IF NOT EXISTS time_requirement text,
+  ADD COLUMN IF NOT EXISTS image_urls text[],
+  ADD COLUMN IF NOT EXISTS quiz_slug text UNIQUE;
 ```
-
-Remove client-side filtering for `newLeads`, `urgentLeads`, and `followUpsToday`. Keep reminders query as-is. Update `PriorityFeed` to receive the union of these three sets (deduplicated) instead of a monolithic leads array.
-
----
-
-## 2. Lead → Customer Lifecycle
-
-**Database migration:**
-- Add `customer_id UUID REFERENCES customers(id)` to `leads` table
-- Create a DB function + trigger: when `leads.status` changes to `'won'`, upsert into `customers` (match on email or phone), then set `leads.customer_id` to the customer ID
-
-**LeadDetail.tsx:**
-- After `updateStatus('won')`, show a toast linking to the customer record
-- Display `customer_id` link in DetailView if set
-
----
-
-## 3. Deterministic Pricing (`estimate-price/index.ts`)
-
-Move math out of the AI prompt. In the edge function TypeScript:
-
-```text
-1. Fetch knowledge_documents for base pricing rules (existing RAG)
-2. Calculate deterministically:
-   - base_price = rate_per_sqm * square_meters
-   - stair_surcharge = stairs_count * STAIR_RATE
-   - doorstep_surcharge = doorsteps_count * DOORSTEP_RATE
-   - parking_surcharge (if parking_info indicates difficulty)
-   - elevator_surcharge (if no elevator in multi-story)
-3. Send the CALCULATED price + lead context to AI ONLY for:
-   - Formatting the explanation text
-   - Flagging missing info
-   - Confidence assessment
-4. price_min/price_max derived from deterministic calc ± margin
-```
-
-Update `generate-quote/index.ts`: append any `disclaimer` field from the active `sales_templates` record verbatim after the AI-refined quote text (never passed through AI).
-
-**Database migration:** Add `disclaimer TEXT` column to `sales_templates`. Update `SalesTemplates.tsx` to include a disclaimer textarea.
-
----
-
-## 4. Automated Supplier Outreach (`LeadAiPanel.tsx`)
-
-Replace `requestAvailability()` which inserts a reminder with a call to:
-
-```text
-supabase.functions.invoke("fire-webhook", {
-  body: {
-    event_type: "supplier_availability_request",
-    payload: { supplier_name, supplier_phone, supplier_email, lead summary }
-  }
-})
-```
-
-Add `"supplier_availability_request"` to the `EVENT_TYPES` map in `WebhookPanel.tsx` so users can configure a Make.com webhook URL for this event.
-
-This allows Make.com to send an automated SMS/email to the supplier.
-
----
-
-## 5. One-Click Call Logging (`LeadDetail.tsx`)
-
-Add a prominent "Log opkald" button next to the phone number in the quick contact section. On click:
-
-1. Instantly insert a `communication_logs` record: `type: 'phone_call'`, `direction: 'outbound'`, `summary: 'Udgående opkald'`, `lead_id`, `created_by`
-2. Update `leads.last_contacted_at` to now
-3. Open an inline Popover (using existing `@/components/ui/popover`) anchored to the button with:
-   - A small textarea for an optional note (updates the comm log summary)
-   - A date input for `next_followup_at`
-   - A "Gem" button to save the note + followup
-4. Toast confirmation immediately on click (before popover interaction)
-
----
-
-## Implementation Order
-
-1. Database migration: `customer_id` on leads, trigger for won→customer upsert, `disclaimer` on sales_templates
-2. Dashboard.tsx: three server-side queries, remove `.limit(50)` filtering
-3. PriorityFeed.tsx: accept pre-filtered leads
-4. estimate-price edge function: deterministic math + AI formatting only
-5. generate-quote edge function: append disclaimer verbatim
-6. SalesTemplates.tsx: add disclaimer field
-7. LeadAiPanel.tsx: replace reminder insert with webhook fire
-8. WebhookPanel.tsx: add supplier_availability_request event type
-9. LeadDetail.tsx: one-click call log with popover
-10. LeadDetail.tsx: show customer link when won
 
