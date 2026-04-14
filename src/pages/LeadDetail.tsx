@@ -6,6 +6,7 @@ import type { Enums } from "@/integrations/supabase/types";
 import StatusBadge from "@/components/StatusBadge";
 import CommunicationTimeline from "@/components/CommunicationTimeline";
 import LeadAiPanel from "@/components/LeadAiPanel";
+import MissingInfoChecklist from "@/components/MissingInfoChecklist";
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -32,6 +33,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ArrowLeft,
   Phone,
   Mail,
@@ -47,6 +53,7 @@ import {
   Users,
   DollarSign,
   Send,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
@@ -154,7 +161,14 @@ export default function LeadDetail() {
       urgency_flag: editData.urgency_flag,
       complexity_flag: editData.complexity_flag,
       internal_notes: editData.internal_notes,
-    };
+    } as any;
+    // New technical fields
+    (updates as any).power_13a_available = (editData as any).power_13a_available;
+    (updates as any).floor_history = (editData as any).floor_history;
+    (updates as any).desired_look = (editData as any).desired_look;
+    (updates as any).urgency_status = (editData as any).urgency_status;
+    (updates as any).quality_expectation = (editData as any).quality_expectation;
+    (updates as any).time_requirement = (editData as any).time_requirement;
     const { error } = await supabase.from("leads").update(updates).eq("id", id);
     if (error) { toast.error("Kunne ikke gemme"); setSaving(false); return; }
     setLead((prev) => prev ? { ...prev, ...updates } : prev);
