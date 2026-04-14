@@ -262,6 +262,7 @@ export type Database = {
           lead_message: string | null
           missing_info_summary: string | null
           name: string
+          next_action_type: string | null
           next_followup_at: string | null
           parking_info: string | null
           parking_status: Database["public"]["Enums"]["parking_status"] | null
@@ -315,6 +316,7 @@ export type Database = {
           lead_message?: string | null
           missing_info_summary?: string | null
           name: string
+          next_action_type?: string | null
           next_followup_at?: string | null
           parking_info?: string | null
           parking_status?: Database["public"]["Enums"]["parking_status"] | null
@@ -368,6 +370,7 @@ export type Database = {
           lead_message?: string | null
           missing_info_summary?: string | null
           name?: string
+          next_action_type?: string | null
           next_followup_at?: string | null
           parking_info?: string | null
           parking_status?: Database["public"]["Enums"]["parking_status"] | null
@@ -711,6 +714,7 @@ export type Database = {
         | "new"
         | "needs_qualification"
         | "contacted"
+        | "inspection_scheduled"
         | "waiting_for_customer"
         | "ready_for_pricing"
         | "offer_sent"
@@ -861,6 +865,7 @@ export const Constants = {
         "new",
         "needs_qualification",
         "contacted",
+        "inspection_scheduled",
         "waiting_for_customer",
         "ready_for_pricing",
         "offer_sent",

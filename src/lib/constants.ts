@@ -2,6 +2,7 @@ export const LEAD_STATUS_LABELS: Record<string, string> = {
   new: "Ny",
   needs_qualification: "Mangler kvalificering",
   contacted: "Kontaktet",
+  inspection_scheduled: "Inspektion booket",
   waiting_for_customer: "Venter på kunde",
   ready_for_pricing: "Klar til pris",
   offer_sent: "Tilbud sendt",
@@ -13,6 +14,7 @@ export const LEAD_STATUS_COLORS: Record<string, string> = {
   new: "bg-status-new/10 text-status-new",
   needs_qualification: "bg-status-warning/10 text-status-warning",
   contacted: "bg-primary/10 text-primary",
+  inspection_scheduled: "bg-status-success/10 text-status-success",
   waiting_for_customer: "bg-status-neutral/10 text-status-neutral",
   ready_for_pricing: "bg-status-success/10 text-status-success",
   offer_sent: "bg-status-urgent/10 text-status-urgent",
@@ -50,4 +52,11 @@ export const PARKING_STATUS_LABELS: Record<string, string> = {
   paid: "Betalt",
   permit_required: "Tilladelse påkrævet",
   unknown: "Ukendt",
+};
+
+export const NEXT_ACTION_LABELS: Record<string, string> = {
+  call_again: "Ring igen",
+  send_quote: "Send tilbud",
+  schedule_inspection: "Book inspektion",
+  follow_up: "Opfølgning",
 };

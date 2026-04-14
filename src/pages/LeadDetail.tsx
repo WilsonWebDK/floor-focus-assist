@@ -7,6 +7,8 @@ import StatusBadge from "@/components/StatusBadge";
 import CommunicationTimeline from "@/components/CommunicationTimeline";
 import LeadAiPanel from "@/components/LeadAiPanel";
 import MissingInfoChecklist from "@/components/MissingInfoChecklist";
+import MobileCallView from "@/components/MobileCallView";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -68,9 +70,11 @@ export default function LeadDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = useIsAdmin();
+  const isMobile = useIsMobile();
   const [lead, setLead] = useState<Lead | null>(null);
   const [commLogs, setCommLogs] = useState<CommLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showMobileCall, setShowMobileCall] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Lead>>({});
@@ -227,8 +231,13 @@ export default function LeadDetail() {
     }).select("id").single();
 
     if (error) { toast.error("Kunne ikke logge opkald"); return; }
-    await supabase.from("leads").update({ last_contacted_at: new Date().toISOString() }).eq("id", id);
-    setLead((prev) => prev ? { ...prev, last_contacted_at: new Date().toISOString() } : prev);
+    const updates: any = { last_contacted_at: new Date().toISOString() };
+    // Auto-transition new → contacted
+    if (lead?.status === "new") {
+      updates.status = "contacted";
+    }
+    await supabase.from("leads").update(updates).eq("id", id);
+    setLead((prev) => prev ? { ...prev, ...updates } : prev);
     setCallLogId(data.id);
     setCallNote("");
     setCallFollowup("");
@@ -320,7 +329,13 @@ export default function LeadDetail() {
             {lead.phone}
           </a>
         )}
-        {lead.phone && (
+        {lead.phone && isMobile && (
+          <Button variant="default" size="sm" className="gap-1.5" onClick={() => setShowMobileCall(true)}>
+            <PhoneCall className="h-4 w-4" />
+            Ring kunde
+          </Button>
+        )}
+        {lead.phone && !isMobile && (
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="default" size="sm" className="gap-1.5" onClick={logCall}>
@@ -353,6 +368,16 @@ export default function LeadDetail() {
           </a>
         )}
       </div>
+
+      {/* Mobile Call View Drawer */}
+      {lead.phone && (
+        <MobileCallView
+          lead={lead}
+          open={showMobileCall}
+          onOpenChange={setShowMobileCall}
+          onSaved={loadData}
+        />
+      )}
 
       {/* Status pipeline */}
       <div className="rounded-lg border bg-card p-4">
