@@ -1,62 +1,59 @@
 
 
-# Step 3: AI Intelligence Engine & Knowledge Base RAG
+# Automated Priority, Economic Reporting & Image Webhook Upgrade
 
-## Current State
-- `analyze-lead` already works with Gemini 2.5 Flash but only returns flags (urgency, complexity, category, suggested questions). No "Sales Strategy Rundown".
-- `estimate-price` uses deterministic pricing + AI for formatting. It fetches knowledge docs via simple text search (no vector/embedding search). Knowledge docs are truncated to 2000 chars each.
-- `embed-document` extracts text and uses AI to clean it, stores in `content_text`. The `embedding` column (pgvector) exists on `knowledge_documents` but is never populated.
-- `KnowledgeBase.tsx` allows upload/delete but has no "View" button.
-- `LeadAiPanel.tsx` shows flags, price, quote, and supplier match — but no structured "AI Analysis Rundown".
-- `generate-quote` exists and works.
+## What already exists
+- `image_urls` (text[]) column already exists on leads
+- `receive-lead` webhook already maps `file_upload` and `image_urls` to the `image_urls` column
+- `revenue` and `actual_costs` columns exist, with an admin-only Economics section in LeadDetail
+- Dashboard already has finance summary for won leads, daily call counter, and inspection widget
+- LeadList already sorts by urgency priority (urgent → new <24h → followup today)
+- `lead_status` enum: `new`, `needs_qualification`, `contacted`, `inspection_scheduled`, `waiting_for_customer`, `ready_for_pricing`, `offer_sent`, `won`, `lost`
 
 ## Plan
 
-### 1. Enhance `analyze-lead` Edge Function — Sales Strategy Rundown
-- Expand the prompt to include ALL technical fields (floor_history, desired_look, power_13a, floor_level, has_elevator, parking_status, urgency_status, quality_expectation, time_requirement, image_urls count, missing_info_summary)
-- Expand the tool schema to return structured rundown:
-  - `complexity_analysis` (string) — detailed complexity breakdown
-  - `potential_challenges` (string) — risks and issues to watch
-  - `recommended_approach` (string) — suggested sales/execution strategy
-  - Keep existing: urgency_flag, complexity_flag, category, suggested_questions, missing_info_summary
-- Store the new fields in `ai_analysis_flags` JSON column (no migration needed)
-- Include knowledge base context (fetch docs with content_text) in the prompt for grounded analysis
+### 1. Database Migration
+Add two new enum values and one column:
+```sql
+ALTER TYPE public.lead_status ADD VALUE IF NOT EXISTS 'mangler_pris' AFTER 'ready_for_pricing';
+ALTER TYPE public.lead_status ADD VALUE IF NOT EXISTS 'opkald_mislykkedes' AFTER 'contacted';
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS priority_score numeric DEFAULT 0;
+```
 
-### 2. Enhance `estimate-price` Edge Function — RAG with Knowledge Base
-- For now, keep using text-based search (pgvector embeddings are not populated, and setting up proper embedding generation would require an embedding model not available via Lovable AI gateway)
-- Improve the knowledge doc selection: search for docs whose `content_text` contains keywords from the lead's job_type, floor_type, treatment_preference
-- Pass more lead fields to the pricing context (floor_history, desired_look, quality_expectation)
-- Return which knowledge docs were used in the price calculation as `applied_rules` array
+### 2. Update Constants
+- Add `mangler_pris: "Mangler pris"` and `opkald_mislykkedes: "Opkald mislykkedes"` to `LEAD_STATUS_LABELS`
+- Add colors: `mangler_pris` → orange, `opkald_mislykkedes` → gray/red
 
-### 3. KnowledgeBase.tsx — Add View Button
-- Add a "View" button next to each document
-- Generate a signed URL via `supabase.storage.from("knowledge-docs").createSignedUrl(doc.file_path, 3600)`
-- Open in new tab for PDFs, or show in a Dialog/iframe for other types
+### 3. Priority Score Calculation
+In `LeadList.tsx`, compute `priority_score` client-side when sorting:
+- `urgency_flag ? 100 : 0`
+- `+ (hours_since_created * -0.5)`
+- `+ (data_completeness * 10)` — where completeness = count of filled critical fields (image_urls, square_meters, job_type, urgency_flag) out of 4
+- Sort by this score descending (replacing the existing manual sort)
 
-### 4. Refactor LeadAiPanel.tsx — Prioritize AI Rundown
-Restructure the panel layout:
-1. **Top**: "Analysér med AI" button
-2. **AI Analysis Rundown** (new section, always visible when analysis exists):
-   - Complexity Analysis card
-   - Potential Challenges card
-   - Recommended Approach card
-3. **Flags & Category** (existing, compact)
-4. **Suggested Questions** (existing)
-5. **Price Estimation** section — add `applied_rules` display showing which SOPs informed the price
-6. **Quote Generation** — consolidate into single "Generér tilbud" button, add "Coming Soon: Slides Integration" badge
-7. **Supplier Match** — keep existing but add "Coming Soon" badge to "Find bedste leverandør"
+### 4. Dashboard: "Urealiseret Potentiale" Widget
+- Add a new query: sum `revenue` for leads where status is NOT `won` and NOT `lost` (i.e., active pipeline)
+- Display as a new `DashboardWidget` with label "Urealiseret potentiale"
+- Rename the revenue field label from "Omsætning" to "Tilbudspris" in the LeadDetail economics section
 
-### 5. LeadDetail.tsx — Minor Updates
-- Remove duplicate "PDF Tilbud" placeholder if it exists alongside the quote button
-- Ensure the AI panel receives the new rundown data from `ai_analysis_flags`
+### 5. Image Gallery in LeadDetail
+- After the contact section, if `image_urls` has entries, render a responsive grid (2-3 columns) of clickable thumbnail images
+- Clicking opens the image full-size in a new tab
+- Show up to 6 images
 
-## No Database Migration Needed
-All new analysis data fits in the existing `ai_analysis_flags` (jsonb) column. No schema changes required.
+### 6. LeadList: Revenue Display
+- Show `revenue` (Tilbudspris) next to each lead in the list if it has a value, as a small badge/label
+
+### 7. Webhook: Already Done
+The `receive-lead` function already accepts `image_urls` as an array and maps `file_upload` — no changes needed.
+
+---
 
 ## Files Modified
-- `supabase/functions/analyze-lead/index.ts` — expanded prompt + tool schema + knowledge context
-- `supabase/functions/estimate-price/index.ts` — keyword-based doc search + applied_rules output
-- `src/components/KnowledgeBase.tsx` — add View button with signed URLs
-- `src/components/LeadAiPanel.tsx` — restructured layout with AI Rundown, applied rules, Coming Soon badges
-- `src/pages/LeadDetail.tsx` — pass new ai_analysis_flags fields to LeadAiPanel
+- **Migration SQL** — add 2 enum values + `priority_score` column
+- `src/lib/constants.ts` — new status labels/colors
+- `src/pages/LeadList.tsx` — priority score sorting, revenue display
+- `src/pages/LeadDetail.tsx` — image gallery, rename "Omsætning" to "Tilbudspris"
+- `src/pages/Dashboard.tsx` — "Urealiseret potentiale" widget
+- `src/components/StatusBadge.tsx` — no changes needed (already uses constants)
 
