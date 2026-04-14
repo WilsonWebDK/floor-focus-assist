@@ -110,6 +110,12 @@ export default function LeadCreate() {
       doorsteps_count: Number(form.doorsteps_count) || 0,
       stairs_count: Number(form.stairs_count) || 0,
       category: region,
+      power_13a_available: form.power_13a_available,
+      floor_history: form.floor_history || null,
+      desired_look: form.desired_look || null,
+      urgency_status: form.urgency_status || null,
+      quality_expectation: form.quality_expectation || null,
+      time_requirement: form.time_requirement || null,
     } as any);
 
     if (error) {
