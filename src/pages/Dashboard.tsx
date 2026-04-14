@@ -6,7 +6,7 @@ import DashboardWidget from "@/components/DashboardWidget";
 import StatusBadge from "@/components/StatusBadge";
 import PriorityFeed from "@/components/PriorityFeed";
 import { useIsAdmin } from "@/hooks/useUserRole";
-import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2, TrendingUp, PhoneCall, CalendarCheck } from "lucide-react";
+import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2, TrendingUp, PhoneCall, CalendarCheck, PiggyBank } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
 
@@ -28,6 +28,7 @@ export default function Dashboard() {
   // New widgets
   const [dailyCallCount, setDailyCallCount] = useState(0);
   const [inspectionCount, setInspectionCount] = useState(0);
+  const [unrealizedPotential, setUnrealizedPotential] = useState(0);
 
   useEffect(() => {
     async function load() {
@@ -92,6 +93,17 @@ export default function Dashboard() {
         setTotalProfit(rev - costs);
       }
 
+      // Unrealized potential: sum revenue for active pipeline leads
+      const { data: activeLeads } = await supabase
+        .from("leads")
+        .select("revenue")
+        .not("status", "in", '("won","lost")');
+
+      if (activeLeads) {
+        const potential = activeLeads.reduce((sum, l) => sum + (Number(l.revenue) || 0), 0);
+        setUnrealizedPotential(potential);
+      }
+
       setLoading(false);
     }
     load();
@@ -142,6 +154,12 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground">Profit</p>
               <p className={`text-lg font-bold tabular-nums ${totalProfit >= 0 ? "text-status-success" : "text-destructive"}`}>
                 {totalProfit.toLocaleString("da-DK")} kr.
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Urealiseret potentiale</p>
+              <p className="text-lg font-bold tabular-nums text-status-warning">
+                {unrealizedPotential.toLocaleString("da-DK")} kr.
               </p>
             </div>
           </div>
