@@ -269,6 +269,7 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           power_13a_available: boolean | null
+          priority_score: number | null
           quality_expectation: string | null
           quiz_slug: string | null
           quote_content: string | null
@@ -323,6 +324,7 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           power_13a_available?: boolean | null
+          priority_score?: number | null
           quality_expectation?: string | null
           quiz_slug?: string | null
           quote_content?: string | null
@@ -377,6 +379,7 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           power_13a_available?: boolean | null
+          priority_score?: number | null
           quality_expectation?: string | null
           quiz_slug?: string | null
           quote_content?: string | null
@@ -714,9 +717,11 @@ export type Database = {
         | "new"
         | "needs_qualification"
         | "contacted"
+        | "opkald_mislykkedes"
         | "inspection_scheduled"
         | "waiting_for_customer"
         | "ready_for_pricing"
+        | "mangler_pris"
         | "offer_sent"
         | "won"
         | "lost"
@@ -865,9 +870,11 @@ export const Constants = {
         "new",
         "needs_qualification",
         "contacted",
+        "opkald_mislykkedes",
         "inspection_scheduled",
         "waiting_for_customer",
         "ready_for_pricing",
+        "mangler_pris",
         "offer_sent",
         "won",
         "lost",
