@@ -56,6 +56,7 @@ import {
   DollarSign,
   Send,
   FileText,
+  ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
@@ -369,6 +370,34 @@ export default function LeadDetail() {
         )}
       </div>
 
+      {/* Image Gallery */}
+      {(lead as any).image_urls?.length > 0 && (
+        <div className="rounded-lg border bg-card p-4">
+          <h2 className="text-sm font-semibold flex items-center gap-2 mb-3">
+            <ImageIcon className="h-4 w-4 text-primary" />
+            Billeder ({(lead as any).image_urls.length})
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {((lead as any).image_urls as string[]).slice(0, 6).map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block aspect-square rounded-lg overflow-hidden border hover:border-primary transition-colors"
+              >
+                <img
+                  src={url}
+                  alt={`Billede ${i + 1}`}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Mobile Call View Drawer */}
       {lead.phone && (
         <MobileCallView
@@ -409,7 +438,7 @@ export default function LeadDetail() {
           </h2>
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <Label className="text-xs">Omsætning (DKK)</Label>
+              <Label className="text-xs">Tilbudspris (DKK)</Label>
               <Input
                 type="number"
                 value={editRevenue}
