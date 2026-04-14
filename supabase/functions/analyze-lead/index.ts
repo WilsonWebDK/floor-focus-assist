@@ -27,23 +27,48 @@ serve(async (req) => {
       .single();
     if (leadErr || !lead) throw new Error("Lead not found");
 
-    const prompt = `Du er en ekspert i gulvslibning og gulvbehandling i Danmark. Analysér denne kundeforespørgsel og giv din vurdering.
+    // Fetch knowledge base docs for grounded analysis
+    let knowledgeContext = "";
+    const { data: docs } = await supabase
+      .from("knowledge_documents")
+      .select("name, content_text")
+      .not("content_text", "is", null)
+      .limit(10);
+
+    if (docs && docs.length > 0) {
+      knowledgeContext = "\n\nRelevante forretningsdokumenter fra vidensbasen:\n" +
+        docs.map((d: any) => `--- ${d.name} ---\n${d.content_text?.substring(0, 3000)}`).join("\n\n");
+    }
+
+    const prompt = `Du er en ekspert i gulvslibning og gulvbehandling i Danmark. Analysér denne kundeforespørgsel grundigt og giv en komplet salgsstrategi.
 
 Kundedata:
 - Navn: ${lead.name}
 - By: ${lead.city || "ukendt"}
 - Postnummer: ${lead.postal_code || "ukendt"}
+- Adresse: ${lead.address || "ikke angivet"}
 - Opgavetype: ${lead.job_type || "ikke angivet"}
 - Kvadratmeter: ${lead.square_meters || "ikke angivet"}
 - Gulvtype: ${lead.floor_type || "ikke angivet"}
 - Ønsket behandling: ${lead.treatment_preference || "ikke angivet"}
 - Antal trapper: ${lead.stairs_count ?? 0}
 - Antal dørtrin: ${lead.doorsteps_count ?? 0}
-- Parkering: ${lead.parking_info || "ikke angivet"}
-- Elevator: ${lead.elevator_info || "ikke angivet"}
+- Etage: ${lead.floor_level ?? 0}
+- Har elevator: ${lead.has_elevator ? "Ja" : "Nej/Ukendt"}
+- Etageadskillelse: ${lead.floor_separation_type || "ikke angivet"}
+- Parkering: ${lead.parking_info || "ikke angivet"} (status: ${lead.parking_status || "ukendt"})
+- 13A strøm tilgængelig: ${lead.power_13a_available ? "Ja" : "Nej/Ukendt"}
+- Gulvhistorik: ${lead.floor_history || "ikke angivet"}
+- Ønsket udseende: ${lead.desired_look || "ikke angivet"}
+- Hastegrad: ${lead.urgency_status || "ikke angivet"}
+- Kvalitetsforventning: ${lead.quality_expectation || "ikke angivet"}
+- Tidsramme: ${lead.time_requirement || "ikke angivet"}
+- Antal billeder uploadet: ${(lead.image_urls || []).length}
 - Kundebesked: ${lead.lead_message || "ingen besked"}
+- Manglende info: ${lead.missing_info_summary || "ikke vurderet endnu"}
+${knowledgeContext}
 
-Vurdér følgende og kald funktionen med dit resultat.`;
+Giv en detaljeret analyse med salgsstrategi. Brug viden fra forretningsdokumenterne hvis relevant.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -54,7 +79,7 @@ Vurdér følgende og kald funktionen med dit resultat.`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "Du er en dansk gulvslibnings-CRM assistent. Svar altid på dansk. Vær konkret og præcis." },
+          { role: "system", content: "Du er en dansk gulvslibnings-CRM assistent. Svar altid på dansk. Vær konkret, præcis og handlingsorienteret. Brug forretningsdokumenter til at understøtte dine anbefalinger." },
           { role: "user", content: prompt },
         ],
         tools: [
@@ -62,7 +87,7 @@ Vurdér følgende og kald funktionen med dit resultat.`;
             type: "function",
             function: {
               name: "analyze_lead",
-              description: "Returnér struktureret analyse af et lead",
+              description: "Returnér struktureret analyse og salgsstrategi for et lead",
               parameters: {
                 type: "object",
                 properties: {
@@ -71,14 +96,17 @@ Vurdér følgende og kald funktionen med dit resultat.`;
                   complexity_flag: { type: "boolean", description: "Om opgaven er kompleks (trapper, specielle gulve, store arealer, etc.)" },
                   complexity_reason: { type: "string", description: "Kort begrundelse for kompleksitet (dansk)" },
                   category: { type: "string", description: "Hovedkategori: slibning, lakering, oliering, nyanlæg, reparation, andet" },
+                  complexity_analysis: { type: "string", description: "Detaljeret analyse af opgavens kompleksitet: gulvtype, areal, adgangsforhold, udstyrsbehov, tidsestimat. 3-5 sætninger på dansk." },
+                  potential_challenges: { type: "string", description: "Potentielle risici og udfordringer: logistik, parkering, støj, gulvets tilstand, kundeforventninger. 3-5 sætninger på dansk." },
+                  recommended_approach: { type: "string", description: "Anbefalet salgsstrategi og udførelsesplan: hvad skal fremhæves overfor kunden, prisfastsættelse, timing, leverandørvalg. 3-5 sætninger på dansk." },
                   suggested_questions: {
                     type: "array",
                     items: { type: "string" },
-                    description: "3 målrettede spørgsmål at stille kunden for at kvalificere leadet (dansk)",
+                    description: "3-5 målrettede spørgsmål at stille kunden for at kvalificere leadet (dansk)",
                   },
-                  missing_info_summary: { type: "string", description: "Kort opsummering af manglende information (dansk)" },
+                  missing_info_summary: { type: "string", description: "Kort opsummering af manglende information der er kritisk for prisberegning og planlægning (dansk)" },
                 },
-                required: ["urgency_flag", "complexity_flag", "category", "suggested_questions"],
+                required: ["urgency_flag", "complexity_flag", "category", "complexity_analysis", "potential_challenges", "recommended_approach", "suggested_questions"],
                 additionalProperties: false,
               },
             },
@@ -120,6 +148,9 @@ Vurdér følgende og kald funktionen med dit resultat.`;
         urgency_reason: analysis.urgency_reason || null,
         complexity_reason: analysis.complexity_reason || null,
         category: analysis.category,
+        complexity_analysis: analysis.complexity_analysis || null,
+        potential_challenges: analysis.potential_challenges || null,
+        recommended_approach: analysis.recommended_approach || null,
         analyzed_at: new Date().toISOString(),
       },
     };

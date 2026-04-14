@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp, Users, Star, FileText, Bell } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp, Users, Star, FileText, Bell, ShieldAlert, Lightbulb, Route, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,9 @@ interface AiAnalysisFlags {
   urgency_reason?: string;
   complexity_reason?: string;
   category?: string;
+  complexity_analysis?: string;
+  potential_challenges?: string;
+  recommended_approach?: string;
   analyzed_at?: string;
 }
 
@@ -19,6 +23,7 @@ interface SuggestedPrice {
   confidence?: string;
   explanation?: string;
   missing_for_accuracy?: string;
+  applied_rules?: string[];
   estimated_at?: string;
 }
 
@@ -61,7 +66,6 @@ export default function LeadAiPanel({
   const [expanded, setExpanded] = useState(true);
   const [localQuote, setLocalQuote] = useState(quoteContent || "");
 
-  // Auto-run supplier match on mount
   useEffect(() => {
     if (supplierMatches.length === 0) {
       runSupplierMatch(true);
@@ -169,6 +173,7 @@ export default function LeadAiPanel({
   };
 
   const hasAnalysis = !!aiAnalysisFlags?.analyzed_at;
+  const hasRundown = !!(aiAnalysisFlags?.complexity_analysis || aiAnalysisFlags?.potential_challenges || aiAnalysisFlags?.recommended_approach);
   const hasPrice = !!suggestedPrice?.price_min;
 
   const formatPrice = (n: number) =>
@@ -189,13 +194,42 @@ export default function LeadAiPanel({
 
       {expanded && (
         <div className="px-4 pb-4 space-y-4">
-          {/* Analyze button */}
+          {/* 1. Analyze button */}
           <Button variant="outline" size="sm" onClick={runAnalysis} disabled={analyzing} className="w-full">
             {analyzing ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
-            {hasAnalysis ? "Kør analyse igen" : "Analysér med AI"}
+            {analyzing ? "Analyserer lead og SOP'er..." : hasAnalysis ? "Kør analyse igen" : "Analysér med AI"}
           </Button>
 
-          {/* Flags & Category */}
+          {/* 2. AI Analysis Rundown */}
+          {hasRundown && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Salgsstrategi</p>
+              
+              {aiAnalysisFlags?.complexity_analysis && (
+                <RundownCard
+                  icon={<Puzzle className="h-3.5 w-3.5 text-yellow-600" />}
+                  title="Kompleksitetsanalyse"
+                  content={aiAnalysisFlags.complexity_analysis}
+                />
+              )}
+              {aiAnalysisFlags?.potential_challenges && (
+                <RundownCard
+                  icon={<ShieldAlert className="h-3.5 w-3.5 text-destructive" />}
+                  title="Potentielle udfordringer"
+                  content={aiAnalysisFlags.potential_challenges}
+                />
+              )}
+              {aiAnalysisFlags?.recommended_approach && (
+                <RundownCard
+                  icon={<Route className="h-3.5 w-3.5 text-primary" />}
+                  title="Anbefalet tilgang"
+                  content={aiAnalysisFlags.recommended_approach}
+                />
+              )}
+            </div>
+          )}
+
+          {/* 3. Flags & Category */}
           {hasAnalysis && (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
@@ -229,7 +263,7 @@ export default function LeadAiPanel({
             </div>
           )}
 
-          {/* Suggested questions */}
+          {/* 4. Suggested questions */}
           {suggestedQuestions && suggestedQuestions.length > 0 && (
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1.5">Foreslåede spørgsmål</p>
@@ -249,7 +283,7 @@ export default function LeadAiPanel({
             </div>
           )}
 
-          {/* Price estimation */}
+          {/* 5. Price estimation */}
           <div className="border-t pt-4">
             <Button variant="outline" size="sm" onClick={runPriceEstimate} disabled={estimating} className="w-full">
               {estimating ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5 mr-1.5" />}
@@ -280,19 +314,37 @@ export default function LeadAiPanel({
                     Mangler: {suggestedPrice.missing_for_accuracy}
                   </p>
                 )}
+                {suggestedPrice.applied_rules && suggestedPrice.applied_rules.length > 0 && (
+                  <div className="pt-1">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Anvendte SOP'er</p>
+                    <div className="flex flex-wrap gap-1">
+                      {suggestedPrice.applied_rules.map((rule, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium">
+                          <BookOpen className="h-2.5 w-2.5" />
+                          {rule}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Quote generation */}
+          {/* 6. Quote generation with Coming Soon badge */}
           <div className="border-t pt-4">
-            <Button variant="outline" size="sm" onClick={generateQuote} disabled={generatingQuote} className="w-full">
-              {generatingQuote ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />}
-              {localQuote ? "Generér tilbud igen" : "Generér tilbud"}
-            </Button>
+            <div className="flex items-center gap-2 mb-2">
+              <Button variant="outline" size="sm" onClick={generateQuote} disabled={generatingQuote} className="flex-1">
+                {generatingQuote ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />}
+                {localQuote ? "Generér tilbud igen" : "Generér tilbud"}
+              </Button>
+              <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground border-dashed">
+                Slides — Kommer snart
+              </Badge>
+            </div>
 
             {localQuote && (
-              <div className="mt-3 rounded-lg bg-accent/30 p-3 space-y-2">
+              <div className="rounded-lg bg-accent/30 p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-muted-foreground">Tilbudstekst</span>
                   <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={copyQuote}>
@@ -304,15 +356,20 @@ export default function LeadAiPanel({
             )}
           </div>
 
-          {/* Supplier matching */}
+          {/* 7. Supplier matching with Coming Soon badge */}
           <div className="border-t pt-4">
-            <Button variant="outline" size="sm" onClick={() => runSupplierMatch(false)} disabled={matching} className="w-full">
-              {matching ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Users className="h-3.5 w-3.5 mr-1.5" />}
-              Find bedste leverandør
-            </Button>
+            <div className="flex items-center gap-2 mb-2">
+              <Button variant="outline" size="sm" onClick={() => runSupplierMatch(false)} disabled={matching} className="flex-1">
+                {matching ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Users className="h-3.5 w-3.5 mr-1.5" />}
+                Find bedste leverandør
+              </Button>
+              <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground border-dashed">
+                Kommer snart
+              </Badge>
+            </div>
 
             {supplierMatches.length > 0 && (
-              <div className="mt-3 space-y-2">
+              <div className="space-y-2">
                 {supplierMatches.map((m, i) => (
                   <div key={m.supplier_id} className={cn(
                     "rounded-lg p-3 space-y-1",
@@ -346,6 +403,18 @@ export default function LeadAiPanel({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function RundownCard({ icon, title, content }: { icon: React.ReactNode; title: string; content: string }) {
+  return (
+    <div className="rounded-lg bg-accent/30 p-3 space-y-1">
+      <div className="flex items-center gap-1.5">
+        {icon}
+        <span className="text-xs font-semibold">{title}</span>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">{content}</p>
     </div>
   );
 }
