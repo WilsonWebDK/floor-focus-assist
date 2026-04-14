@@ -329,7 +329,13 @@ export default function LeadDetail() {
             {lead.phone}
           </a>
         )}
-        {lead.phone && (
+        {lead.phone && isMobile && (
+          <Button variant="default" size="sm" className="gap-1.5" onClick={() => setShowMobileCall(true)}>
+            <PhoneCall className="h-4 w-4" />
+            Ring kunde
+          </Button>
+        )}
+        {lead.phone && !isMobile && (
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="default" size="sm" className="gap-1.5" onClick={logCall}>
@@ -362,6 +368,16 @@ export default function LeadDetail() {
           </a>
         )}
       </div>
+
+      {/* Mobile Call View Drawer */}
+      {lead.phone && (
+        <MobileCallView
+          lead={lead}
+          open={showMobileCall}
+          onOpenChange={setShowMobileCall}
+          onSaved={loadData}
+        />
+      )}
 
       {/* Status pipeline */}
       <div className="rounded-lg border bg-card p-4">
