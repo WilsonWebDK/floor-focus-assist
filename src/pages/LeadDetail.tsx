@@ -476,6 +476,21 @@ export default function LeadDetail() {
         )}
       </div>
 
+      {/* Missing Info Checklist */}
+      <MissingInfoChecklist lead={lead} />
+
+      {/* PDF Quote Placeholder */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="outline" className="w-full gap-2" disabled>
+            <FileText className="h-4 w-4" />
+            PDF Tilbud
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Kommer snart — Google Slides integration</p>
+        </TooltipContent>
+      </Tooltip>
       {/* AI Insights Panel */}
       <LeadAiPanel
         leadId={lead.id}
