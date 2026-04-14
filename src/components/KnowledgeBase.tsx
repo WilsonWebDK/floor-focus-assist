@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Upload, Trash2, FileText, Loader2 } from "lucide-react";
+import { Upload, Trash2, FileText, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
@@ -46,7 +46,6 @@ export default function KnowledgeBase() {
     setUploading(true);
     const filePath = `${user.id}/${Date.now()}_${file.name}`;
 
-    // Upload to storage
     const { error: storageErr } = await supabase.storage
       .from("knowledge-docs")
       .upload(filePath, file);
@@ -56,7 +55,6 @@ export default function KnowledgeBase() {
       return;
     }
 
-    // Create DB record
     const { data: docRecord, error: dbErr } = await supabase
       .from("knowledge_documents")
       .insert({ user_id: user.id, name: file.name, file_path: filePath })
@@ -68,7 +66,6 @@ export default function KnowledgeBase() {
       return;
     }
 
-    // Trigger embedding
     supabase.functions.invoke("embed-document", {
       body: { document_id: docRecord.id },
     }).then(({ error }) => {
@@ -80,9 +77,18 @@ export default function KnowledgeBase() {
     toast.success("Dokument uploadet — AI behandler indholdet...");
     setUploading(false);
     loadDocs();
-
-    // Reset input
     e.target.value = "";
+  };
+
+  const viewDoc = async (doc: KnowledgeDoc) => {
+    const { data, error } = await supabase.storage
+      .from("knowledge-docs")
+      .createSignedUrl(doc.file_path, 3600);
+    if (error || !data?.signedUrl) {
+      toast.error("Kunne ikke åbne dokument");
+      return;
+    }
+    window.open(data.signedUrl, "_blank");
   };
 
   const deleteDoc = async (doc: KnowledgeDoc) => {
@@ -146,6 +152,9 @@ export default function KnowledgeBase() {
                   {doc.content_text ? " · Behandlet" : " · Afventer behandling..."}
                 </p>
               </div>
+              <Button variant="ghost" size="sm" onClick={() => viewDoc(doc)} className="shrink-0" title="Vis dokument">
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => deleteDoc(doc)} className="text-destructive hover:text-destructive shrink-0">
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
