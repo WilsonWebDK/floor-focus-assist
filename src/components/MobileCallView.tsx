@@ -63,7 +63,7 @@ export default function MobileCallView({ lead, open, onOpenChange, onSaved }: Mo
     });
 
     // 2. Update lead fields
-    const updates: Record<string, any> = {
+    const updates: any = {
       last_contacted_at: new Date().toISOString(),
       next_followup_at: new Date(nextActionDate).toISOString(),
       next_action_type: nextActionType,
