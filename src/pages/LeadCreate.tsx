@@ -44,6 +44,12 @@ export default function LeadCreate() {
     floor_separation_type: "",
     doorsteps_count: "0",
     stairs_count: "0",
+    power_13a_available: false,
+    floor_history: "",
+    desired_look: "",
+    urgency_status: "",
+    quality_expectation: "",
+    time_requirement: "",
   });
 
   const [postalError, setPostalError] = useState("");
