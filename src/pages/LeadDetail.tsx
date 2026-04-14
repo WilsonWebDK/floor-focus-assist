@@ -618,7 +618,6 @@ function EditForm({ editData, setEditData }: { editData: Partial<Lead>; setEditD
           <input type="checkbox" checked={(editData as any).power_13a_available ?? false} onChange={(e) => setEditData({ ...editData, power_13a_available: e.target.checked } as any)} className="rounded" />
           13A strøm
         </label>
-        </label>
       </div>
       <div className="sm:col-span-2">
         <Label className="text-xs">Interne noter</Label>
