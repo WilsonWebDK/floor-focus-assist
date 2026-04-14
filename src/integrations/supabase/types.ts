@@ -475,6 +475,7 @@ export type Database = {
       suppliers: {
         Row: {
           can_do_carpentry: boolean | null
+          capacity_notes: string | null
           cities_served: string[] | null
           created_at: string
           created_by: string | null
@@ -483,15 +484,21 @@ export type Database = {
           id: string
           name: string
           phone: string | null
-          price_level: string | null
           quality_score: number | null
           reliability_notes: string | null
+          score_danish_language: number | null
+          score_floor_laying: number | null
+          score_floor_sanding: number | null
+          score_reliability: number | null
+          score_surface_treatment: number | null
+          score_terrace: number | null
           skills: string[] | null
           speaks_good_danish: boolean | null
           updated_at: string
         }
         Insert: {
           can_do_carpentry?: boolean | null
+          capacity_notes?: string | null
           cities_served?: string[] | null
           created_at?: string
           created_by?: string | null
@@ -500,15 +507,21 @@ export type Database = {
           id?: string
           name: string
           phone?: string | null
-          price_level?: string | null
           quality_score?: number | null
           reliability_notes?: string | null
+          score_danish_language?: number | null
+          score_floor_laying?: number | null
+          score_floor_sanding?: number | null
+          score_reliability?: number | null
+          score_surface_treatment?: number | null
+          score_terrace?: number | null
           skills?: string[] | null
           speaks_good_danish?: boolean | null
           updated_at?: string
         }
         Update: {
           can_do_carpentry?: boolean | null
+          capacity_notes?: string | null
           cities_served?: string[] | null
           created_at?: string
           created_by?: string | null
@@ -517,9 +530,14 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
-          price_level?: string | null
           quality_score?: number | null
           reliability_notes?: string | null
+          score_danish_language?: number | null
+          score_floor_laying?: number | null
+          score_floor_sanding?: number | null
+          score_reliability?: number | null
+          score_surface_treatment?: number | null
+          score_terrace?: number | null
           skills?: string[] | null
           speaks_good_danish?: boolean | null
           updated_at?: string
@@ -717,6 +735,9 @@ export type Database = {
         | "new"
         | "needs_qualification"
         | "contacted"
+        | "kontaktet_tlf"
+        | "kontaktet_mail"
+        | "kontaktet_sms"
         | "opkald_mislykkedes"
         | "inspection_scheduled"
         | "waiting_for_customer"
@@ -870,6 +891,9 @@ export const Constants = {
         "new",
         "needs_qualification",
         "contacted",
+        "kontaktet_tlf",
+        "kontaktet_mail",
+        "kontaktet_sms",
         "opkald_mislykkedes",
         "inspection_scheduled",
         "waiting_for_customer",
