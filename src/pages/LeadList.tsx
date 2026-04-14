@@ -65,32 +65,24 @@ function isUrgentNewLead(lead: Lead): boolean {
   return ageHours >= 12;
 }
 
-/** Sort leads by urgency priority */
-function sortLeadsByPriority(leads: Lead[]): Lead[] {
+/** Calculate priority score for a lead */
+function calcPriorityScore(lead: Lead): number {
   const now = new Date();
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  const hoursSinceCreated = differenceInHours(now, new Date(lead.created_at));
 
-  return [...leads].sort((a, b) => {
-    // Priority 1: Urgent flag
-    if (a.urgency_flag && !b.urgency_flag) return -1;
-    if (!a.urgency_flag && b.urgency_flag) return 1;
+  // Data completeness: count of filled critical fields out of 4
+  let completeness = 0;
+  if ((lead as any).image_urls?.length) completeness++;
+  if (lead.square_meters) completeness++;
+  if (lead.job_type) completeness++;
+  if (lead.urgency_flag) completeness++;
 
-    // Priority 2: New leads < 24h
-    const aIsNew24h = a.status === "new" && differenceInHours(now, new Date(a.created_at)) < 24;
-    const bIsNew24h = b.status === "new" && differenceInHours(now, new Date(b.created_at)) < 24;
-    if (aIsNew24h && !bIsNew24h) return -1;
-    if (!aIsNew24h && bIsNew24h) return 1;
+  return (lead.urgency_flag ? 100 : 0) + (hoursSinceCreated * -0.5) + (completeness * 10);
+}
 
-    // Priority 3: next_followup_at <= today
-    const aFollowup = a.next_followup_at ? new Date(a.next_followup_at) <= todayEnd : false;
-    const bFollowup = b.next_followup_at ? new Date(b.next_followup_at) <= todayEnd : false;
-    if (aFollowup && !bFollowup) return -1;
-    if (!aFollowup && bFollowup) return 1;
-
-    // Default: newest first
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+/** Sort leads by priority score descending */
+function sortLeadsByPriority(leads: Lead[]): Lead[] {
+  return [...leads].sort((a, b) => calcPriorityScore(b) - calcPriorityScore(a));
 }
 
 export default function LeadList() {
@@ -257,6 +249,11 @@ export default function LeadList() {
                       <span className="inline-flex items-center gap-0.5 rounded-full bg-destructive/15 text-destructive px-1.5 py-0.5 text-[10px] font-semibold">
                         <Flame className="h-2.5 w-2.5" />
                         Ikke kontaktet
+                      </span>
+                    )}
+                    {lead.revenue != null && Number(lead.revenue) > 0 && (
+                      <span className="inline-flex items-center rounded-full bg-status-success/10 text-status-success px-1.5 py-0.5 text-[10px] font-semibold tabular-nums shrink-0">
+                        {Number(lead.revenue).toLocaleString("da-DK")} kr.
                       </span>
                     )}
                   </div>
