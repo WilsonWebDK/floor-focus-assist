@@ -596,7 +596,12 @@ function EditForm({ editData, setEditData }: { editData: Partial<Lead>; setEditD
         </Select>
       </div>
       <div><Label className="text-xs">Elevator (note)</Label><Input value={editData.elevator_info ?? ""} onChange={(e) => setEditData({ ...editData, elevator_info: e.target.value })} /></div>
-      <div className="sm:col-span-2 flex gap-4">
+      <div><Label className="text-xs">Gulvhistorik</Label><Input value={(editData as any).floor_history ?? ""} onChange={(e) => setEditData({ ...editData, floor_history: e.target.value } as any)} placeholder="Tidligere behandlinger..." /></div>
+      <div><Label className="text-xs">Ønsket udseende</Label><Input value={(editData as any).desired_look ?? ""} onChange={(e) => setEditData({ ...editData, desired_look: e.target.value } as any)} placeholder="Kundens ønskede resultat..." /></div>
+      <div><Label className="text-xs">Kvalitetsforventning</Label><Input value={(editData as any).quality_expectation ?? ""} onChange={(e) => setEditData({ ...editData, quality_expectation: e.target.value } as any)} /></div>
+      <div><Label className="text-xs">Tidsramme</Label><Input value={(editData as any).time_requirement ?? ""} onChange={(e) => setEditData({ ...editData, time_requirement: e.target.value } as any)} placeholder="Hvornår skal det laves?" /></div>
+      <div><Label className="text-xs">Hastegrad (beskrivelse)</Label><Input value={(editData as any).urgency_status ?? ""} onChange={(e) => setEditData({ ...editData, urgency_status: e.target.value } as any)} /></div>
+      <div className="sm:col-span-2 flex flex-wrap gap-4">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={editData.urgency_flag ?? false} onChange={(e) => setEditData({ ...editData, urgency_flag: e.target.checked })} className="rounded" />
           Haster
@@ -608,6 +613,11 @@ function EditForm({ editData, setEditData }: { editData: Partial<Lead>; setEditD
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={(editData as any).has_elevator ?? false} onChange={(e) => setEditData({ ...editData, has_elevator: e.target.checked } as any)} className="rounded" />
           Elevator
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={(editData as any).power_13a_available ?? false} onChange={(e) => setEditData({ ...editData, power_13a_available: e.target.checked } as any)} className="rounded" />
+          13A strøm
+        </label>
         </label>
       </div>
       <div className="sm:col-span-2">
