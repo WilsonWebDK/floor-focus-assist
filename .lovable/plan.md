@@ -1,59 +1,39 @@
 
 
-# Automated Priority, Economic Reporting & Image Webhook Upgrade
+# Step 3.5: AI Email Drafts & SOP Document Viewer
 
-## What already exists
-- `image_urls` (text[]) column already exists on leads
-- `receive-lead` webhook already maps `file_upload` and `image_urls` to the `image_urls` column
-- `revenue` and `actual_costs` columns exist, with an admin-only Economics section in LeadDetail
-- Dashboard already has finance summary for won leads, daily call counter, and inspection widget
-- LeadList already sorts by urgency priority (urgent → new <24h → followup today)
-- `lead_status` enum: `new`, `needs_qualification`, `contacted`, `inspection_scheduled`, `waiting_for_customer`, `ready_for_pricing`, `offer_sent`, `won`, `lost`
+## Current State
+- `analyze-lead` already returns structured analysis via tool calling but no email draft
+- `KnowledgeBase.tsx` already has a "View" button with signed URLs (added in Step 3)
+- `LeadAiPanel.tsx` has the rundown, price, quote, and supplier sections
+- `embed-document` is already triggered on upload
+- Revenue field ("Tilbudspris") is already visible and editable in LeadDetail (admin-only Economics section)
+- New statuses `mangler_pris` and `opkald_mislykkedes` are already in the enum and constants
 
 ## Plan
 
-### 1. Database Migration
-Add two new enum values and one column:
-```sql
-ALTER TYPE public.lead_status ADD VALUE IF NOT EXISTS 'mangler_pris' AFTER 'ready_for_pricing';
-ALTER TYPE public.lead_status ADD VALUE IF NOT EXISTS 'opkald_mislykkedes' AFTER 'contacted';
-ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS priority_score numeric DEFAULT 0;
-```
+### 1. Update `analyze-lead` Edge Function
+- Add `suggested_draft` to the tool schema — a personalized email response in Danish addressing the customer by name, referencing their floor type, sqm, and any technical concerns
+- Add instruction in the prompt to generate a professional email draft
+- Store `suggested_draft` in the `ai_analysis_flags` JSON (no migration needed)
 
-### 2. Update Constants
-- Add `mangler_pris: "Mangler pris"` and `opkald_mislykkedes: "Opkald mislykkedes"` to `LEAD_STATUS_LABELS`
-- Add colors: `mangler_pris` → orange, `opkald_mislykkedes` → gray/red
+### 2. Update LeadAiPanel.tsx — "Udkast til svar" Section
+- Add `suggested_draft` to the `AiAnalysisFlags` interface
+- After the suggested questions section, add a new "Udkast til svar" card:
+  - Display the draft text in a readable format
+  - "Kopiér til udklipsholder" button with toast confirmation
+  - Small info badge: "Gmail integration afventer — kopiér/indsæt manuelt"
 
-### 3. Priority Score Calculation
-In `LeadList.tsx`, compute `priority_score` client-side when sorting:
-- `urgency_flag ? 100 : 0`
-- `+ (hours_since_created * -0.5)`
-- `+ (data_completeness * 10)` — where completeness = count of filled critical fields (image_urls, square_meters, job_type, urgency_flag) out of 4
-- Sort by this score descending (replacing the existing manual sort)
+### 3. KnowledgeBase.tsx — Already Done
+The View button with signed URLs was already implemented in Step 3. The embed-document process is already triggered on upload. No changes needed.
 
-### 4. Dashboard: "Urealiseret Potentiale" Widget
-- Add a new query: sum `revenue` for leads where status is NOT `won` and NOT `lost` (i.e., active pipeline)
-- Display as a new `DashboardWidget` with label "Urealiseret potentiale"
-- Rename the revenue field label from "Omsætning" to "Tilbudspris" in the LeadDetail economics section
-
-### 5. Image Gallery in LeadDetail
-- After the contact section, if `image_urls` has entries, render a responsive grid (2-3 columns) of clickable thumbnail images
-- Clicking opens the image full-size in a new tab
-- Show up to 6 images
-
-### 6. LeadList: Revenue Display
-- Show `revenue` (Tilbudspris) next to each lead in the list if it has a value, as a small badge/label
-
-### 7. Webhook: Already Done
-The `receive-lead` function already accepts `image_urls` as an array and maps `file_upload` — no changes needed.
-
----
+### 4. UI Polish — Already Done
+- "Tilbudspris" is already labeled and editable in LeadDetail economics section
+- `mangler_pris` and `opkald_mislykkedes` are already in `LEAD_STATUS_LABELS` and rendered in the status pipeline buttons
 
 ## Files Modified
-- **Migration SQL** — add 2 enum values + `priority_score` column
-- `src/lib/constants.ts` — new status labels/colors
-- `src/pages/LeadList.tsx` — priority score sorting, revenue display
-- `src/pages/LeadDetail.tsx` — image gallery, rename "Omsætning" to "Tilbudspris"
-- `src/pages/Dashboard.tsx` — "Urealiseret potentiale" widget
-- `src/components/StatusBadge.tsx` — no changes needed (already uses constants)
+- `supabase/functions/analyze-lead/index.ts` — add `suggested_draft` to tool schema and prompt
+- `src/components/LeadAiPanel.tsx` — add email draft section with copy button
+
+## No Database Migration Needed
 
