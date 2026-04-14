@@ -1,18 +1,61 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import StatusBadge from "@/components/StatusBadge";
 import { LEAD_STATUS_LABELS, LEAD_SOURCE_LABELS } from "@/lib/constants";
-import { AlertTriangle, Search, Filter } from "lucide-react";
+import { AlertTriangle, Search, Filter, Plus, ImageOff, Ruler, Wrench, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 type Lead = Tables<"leads">;
 
 const STATUS_OPTIONS = Object.entries(LEAD_STATUS_LABELS);
+
+function MissingInfoBadges({ lead }: { lead: Lead }) {
+  const badges: { label: string; icon: React.ReactNode }[] = [];
+
+  if (!(lead as any).image_urls?.length) {
+    badges.push({ label: "Billede", icon: <ImageOff className="h-2.5 w-2.5" /> });
+  }
+  if (!lead.square_meters) {
+    badges.push({ label: "m²", icon: <Ruler className="h-2.5 w-2.5" /> });
+  }
+  if (!lead.job_type) {
+    badges.push({ label: "Opgave", icon: <Wrench className="h-2.5 w-2.5" /> });
+  }
+  if (!lead.urgency_flag) {
+    badges.push({ label: "Hast", icon: <Clock className="h-2.5 w-2.5" /> });
+  }
+
+  if (badges.length === 0) return null;
+
+  return (
+    <div className="flex gap-1 mt-0.5 flex-wrap">
+      {badges.map((b) => (
+        <span
+          key={b.label}
+          className="inline-flex items-center gap-0.5 rounded-full bg-destructive/10 text-destructive px-1.5 py-0.5 text-[10px] font-medium"
+        >
+          {b.icon}
+          {b.label}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export default function LeadList() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -21,6 +64,15 @@ export default function LeadList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status") ?? "all";
   const [showFilters, setShowFilters] = useState(false);
+
+  // Quick-Lead dialog
+  const [showQuickLead, setShowQuickLead] = useState(false);
+  const [qlName, setQlName] = useState("");
+  const [qlPhone, setQlPhone] = useState("");
+  const [qlAddress, setQlAddress] = useState("");
+  const [qlSaving, setQlSaving] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     async function load() {
@@ -45,6 +97,25 @@ export default function LeadList() {
       l.city?.toLowerCase().includes(q)
     );
   });
+
+  const submitQuickLead = async () => {
+    if (!qlName.trim()) { toast.error("Navn er påkrævet"); return; }
+    setQlSaving(true);
+    const { data, error } = await supabase.from("leads").insert({
+      name: qlName.trim(),
+      phone: qlPhone || null,
+      address: qlAddress || null,
+      source: "phone" as any,
+      created_by: user?.id,
+    } as any).select("id").single();
+
+    if (error) { toast.error("Kunne ikke oprette lead"); setQlSaving(false); return; }
+    toast.success("Lead oprettet");
+    setShowQuickLead(false);
+    setQlName(""); setQlPhone(""); setQlAddress("");
+    setQlSaving(false);
+    if (data?.id) navigate(`/leads/${data.id}`);
+  };
 
   return (
     <div className="space-y-4">
@@ -146,12 +217,48 @@ export default function LeadList() {
                   {LEAD_SOURCE_LABELS[lead.source] ?? lead.source} ·{" "}
                   {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: da })}
                 </p>
+                <MissingInfoBadges lead={lead} />
               </div>
               <StatusBadge status={lead.status} className="ml-2 shrink-0" />
             </Link>
           ))}
         </div>
       )}
+
+      {/* Floating Quick-Lead Button */}
+      <button
+        onClick={() => setShowQuickLead(true)}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-lg px-4 py-3 hover:bg-primary/90 active:scale-95 transition-all"
+      >
+        <Plus className="h-5 w-5" />
+        <span className="text-sm font-medium hidden sm:inline">Hurtig lead</span>
+      </button>
+
+      {/* Quick-Lead Dialog */}
+      <Dialog open={showQuickLead} onOpenChange={setShowQuickLead}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Hurtig lead (telefonopkald)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Navn *</Label>
+              <Input value={qlName} onChange={(e) => setQlName(e.target.value)} autoFocus />
+            </div>
+            <div>
+              <Label className="text-xs">Telefon</Label>
+              <Input value={qlPhone} onChange={(e) => setQlPhone(e.target.value)} type="tel" />
+            </div>
+            <div>
+              <Label className="text-xs">Adresse</Label>
+              <Input value={qlAddress} onChange={(e) => setQlAddress(e.target.value)} />
+            </div>
+            <Button className="w-full" onClick={submitQuickLead} disabled={qlSaving}>
+              {qlSaving ? "Opretter..." : "Opret lead"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
