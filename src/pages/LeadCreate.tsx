@@ -262,6 +262,11 @@ export default function LeadCreate() {
               <Input value={form.time_requirement} onChange={(e) => set("time_requirement", e.target.value)} placeholder="Hvornår skal det laves?" />
             </div>
           </div>
+        </div>
+
+        <div className="rounded-lg border bg-card p-4 space-y-3">
+          <h2 className="text-sm font-semibold">Tekniske detaljer</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label className="text-xs">Etage</Label>
               <Input value={form.floor_level} onChange={(e) => set("floor_level", e.target.value)} type="number" min="0" />
@@ -293,6 +298,12 @@ export default function LeadCreate() {
               <label className="flex items-center gap-2 text-sm pb-2">
                 <input type="checkbox" checked={form.has_elevator} onChange={(e) => set("has_elevator", e.target.checked)} className="rounded" />
                 Elevator tilgængelig
+              </label>
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 text-sm pb-2">
+                <input type="checkbox" checked={form.power_13a_available} onChange={(e) => set("power_13a_available", e.target.checked)} className="rounded" />
+                13A strøm tilgængelig
               </label>
             </div>
           </div>
