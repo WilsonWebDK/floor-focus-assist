@@ -70,9 +70,11 @@ export default function LeadDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = useIsAdmin();
+  const isMobile = useIsMobile();
   const [lead, setLead] = useState<Lead | null>(null);
   const [commLogs, setCommLogs] = useState<CommLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showMobileCall, setShowMobileCall] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Lead>>({});
