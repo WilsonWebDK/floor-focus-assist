@@ -68,13 +68,16 @@ Kundedata:
 - Manglende info: ${lead.missing_info_summary || "ikke vurderet endnu"}
 ${knowledgeContext}
 
-Giv en detaljeret analyse med salgsstrategi. Brug viden fra forretningsdokumenterne hvis relevant.
+Giv en detaljeret analyse med salgsstrategi. Henvis specifikt til relevante SOP-dokumenter ved navn (f.eks. "Ifølge SOP for lakering…"). Brug viden fra forretningsdokumenterne til at understøtte dine anbefalinger.
+
+Analysér også kundens besked og forsøg at udtrække konkrete tekniske data: kvadratmeter, etage og elevator-info. Returnér disse som suggested_sqm, suggested_floor_level og suggested_has_elevator hvis de kan udledes.
 
 Skriv også et professionelt, venligt emailudkast til kunden på dansk. Emailen skal:
 - Adressere kunden ved navn
 - Referere til deres specifikke opgave (gulvtype, m², behandling)
 - Nævne eventuelle tekniske forhold (etage, strøm, parkering) hvis relevant
-- Være klar til at sende (med hilsen fra virksomheden)`;
+- Være klar til at sende (med hilsen fra virksomheden)
+- Undgå typiske AI-introsætninger som "Tak for din henvendelse". Skriv naturligt og professionelt som en erfaren håndværker der har læst kundens besked.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -85,7 +88,7 @@ Skriv også et professionelt, venligt emailudkast til kunden på dansk. Emailen 
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "Du er en dansk gulvslibnings-CRM assistent. Svar altid på dansk. Vær konkret, præcis og handlingsorienteret. Brug forretningsdokumenter til at understøtte dine anbefalinger." },
+          { role: "system", content: "Du er en dansk gulvslibnings-CRM assistent. Svar altid på dansk. Vær konkret, præcis og handlingsorienteret. Henvis til SOP-dokumenter ved navn når du giver anbefalinger. Skriv emailudkast der lyder som en erfaren håndværker — ikke som en AI." },
           { role: "user", content: prompt },
         ],
         tools: [
@@ -102,16 +105,19 @@ Skriv også et professionelt, venligt emailudkast til kunden på dansk. Emailen 
                   complexity_flag: { type: "boolean", description: "Om opgaven er kompleks (trapper, specielle gulve, store arealer, etc.)" },
                   complexity_reason: { type: "string", description: "Kort begrundelse for kompleksitet (dansk)" },
                   category: { type: "string", description: "Hovedkategori: slibning, lakering, oliering, nyanlæg, reparation, andet" },
-                  complexity_analysis: { type: "string", description: "Detaljeret analyse af opgavens kompleksitet: gulvtype, areal, adgangsforhold, udstyrsbehov, tidsestimat. 3-5 sætninger på dansk." },
-                  potential_challenges: { type: "string", description: "Potentielle risici og udfordringer: logistik, parkering, støj, gulvets tilstand, kundeforventninger. 3-5 sætninger på dansk." },
-                  recommended_approach: { type: "string", description: "Anbefalet salgsstrategi og udførelsesplan: hvad skal fremhæves overfor kunden, prisfastsættelse, timing, leverandørvalg. 3-5 sætninger på dansk." },
+                  complexity_analysis: { type: "string", description: "Detaljeret analyse af opgavens kompleksitet. Henvis til relevante SOP-dokumenter ved navn. 3-5 sætninger på dansk." },
+                  potential_challenges: { type: "string", description: "Potentielle risici og udfordringer. Henvis til SOP'er hvis relevant. 3-5 sætninger på dansk." },
+                  recommended_approach: { type: "string", description: "Anbefalet salgsstrategi og udførelsesplan med SOP-referencer. 3-5 sætninger på dansk." },
                   suggested_questions: {
                     type: "array",
                     items: { type: "string" },
                     description: "3-5 målrettede spørgsmål at stille kunden for at kvalificere leadet (dansk)",
                   },
                   missing_info_summary: { type: "string", description: "Kort opsummering af manglende information der er kritisk for prisberegning og planlægning (dansk)" },
-                  suggested_draft: { type: "string", description: "Professionelt emailudkast til kunden på dansk. Personaliseret med kundens navn, opgavetype, m² og tekniske detaljer. Klar til afsendelse med venlig hilsen." },
+                  suggested_draft: { type: "string", description: "Professionelt emailudkast til kunden på dansk. Personaliseret med kundens navn, opgavetype, m² og tekniske detaljer. Skriv som en erfaren håndværker, ikke en AI. Klar til afsendelse med venlig hilsen." },
+                  suggested_sqm: { type: "number", description: "Udtrukket antal kvadratmeter fra kundens besked, eller null hvis ikke muligt" },
+                  suggested_floor_level: { type: "number", description: "Udtrukket etage fra kundens besked, eller null hvis ikke muligt" },
+                  suggested_has_elevator: { type: "boolean", description: "Udtrukket elevator-info fra kundens besked, eller null hvis ikke muligt" },
                 },
                 required: ["urgency_flag", "complexity_flag", "category", "complexity_analysis", "potential_challenges", "recommended_approach", "suggested_questions", "suggested_draft"],
                 additionalProperties: false,
@@ -159,6 +165,9 @@ Skriv også et professionelt, venligt emailudkast til kunden på dansk. Emailen 
         potential_challenges: analysis.potential_challenges || null,
         recommended_approach: analysis.recommended_approach || null,
         suggested_draft: analysis.suggested_draft || null,
+        suggested_sqm: analysis.suggested_sqm ?? null,
+        suggested_floor_level: analysis.suggested_floor_level ?? null,
+        suggested_has_elevator: analysis.suggested_has_elevator ?? null,
         analyzed_at: new Date().toISOString(),
       },
     };
