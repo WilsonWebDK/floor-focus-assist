@@ -242,9 +242,11 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_id: string | null
+          desired_look: string | null
           doorsteps_count: number | null
           elevator_info: string | null
           email: string | null
+          floor_history: string | null
           floor_level: number | null
           floor_separation_type: string | null
           floor_type: string | null
@@ -252,6 +254,7 @@ export type Database = {
           google_calendar_link: string | null
           has_elevator: boolean | null
           id: string
+          image_urls: string[] | null
           internal_notes: string | null
           is_priority: boolean | null
           job_type: string | null
@@ -264,6 +267,9 @@ export type Database = {
           parking_status: Database["public"]["Enums"]["parking_status"] | null
           phone: string | null
           postal_code: string | null
+          power_13a_available: boolean | null
+          quality_expectation: string | null
+          quiz_slug: string | null
           quote_content: string | null
           revenue: number | null
           source: Database["public"]["Enums"]["lead_source"]
@@ -272,9 +278,11 @@ export type Database = {
           status: Database["public"]["Enums"]["lead_status"]
           suggested_price: Json | null
           suggested_questions: string[] | null
+          time_requirement: string | null
           treatment_preference: string | null
           updated_at: string
           urgency_flag: boolean | null
+          urgency_status: string | null
         }
         Insert: {
           actual_costs?: number | null
@@ -287,9 +295,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          desired_look?: string | null
           doorsteps_count?: number | null
           elevator_info?: string | null
           email?: string | null
+          floor_history?: string | null
           floor_level?: number | null
           floor_separation_type?: string | null
           floor_type?: string | null
@@ -297,6 +307,7 @@ export type Database = {
           google_calendar_link?: string | null
           has_elevator?: boolean | null
           id?: string
+          image_urls?: string[] | null
           internal_notes?: string | null
           is_priority?: boolean | null
           job_type?: string | null
@@ -309,6 +320,9 @@ export type Database = {
           parking_status?: Database["public"]["Enums"]["parking_status"] | null
           phone?: string | null
           postal_code?: string | null
+          power_13a_available?: boolean | null
+          quality_expectation?: string | null
+          quiz_slug?: string | null
           quote_content?: string | null
           revenue?: number | null
           source?: Database["public"]["Enums"]["lead_source"]
@@ -317,9 +331,11 @@ export type Database = {
           status?: Database["public"]["Enums"]["lead_status"]
           suggested_price?: Json | null
           suggested_questions?: string[] | null
+          time_requirement?: string | null
           treatment_preference?: string | null
           updated_at?: string
           urgency_flag?: boolean | null
+          urgency_status?: string | null
         }
         Update: {
           actual_costs?: number | null
@@ -332,9 +348,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          desired_look?: string | null
           doorsteps_count?: number | null
           elevator_info?: string | null
           email?: string | null
+          floor_history?: string | null
           floor_level?: number | null
           floor_separation_type?: string | null
           floor_type?: string | null
@@ -342,6 +360,7 @@ export type Database = {
           google_calendar_link?: string | null
           has_elevator?: boolean | null
           id?: string
+          image_urls?: string[] | null
           internal_notes?: string | null
           is_priority?: boolean | null
           job_type?: string | null
@@ -354,6 +373,9 @@ export type Database = {
           parking_status?: Database["public"]["Enums"]["parking_status"] | null
           phone?: string | null
           postal_code?: string | null
+          power_13a_available?: boolean | null
+          quality_expectation?: string | null
+          quiz_slug?: string | null
           quote_content?: string | null
           revenue?: number | null
           source?: Database["public"]["Enums"]["lead_source"]
@@ -362,9 +384,11 @@ export type Database = {
           status?: Database["public"]["Enums"]["lead_status"]
           suggested_price?: Json | null
           suggested_questions?: string[] | null
+          time_requirement?: string | null
           treatment_preference?: string | null
           updated_at?: string
           urgency_flag?: boolean | null
+          urgency_status?: string | null
         }
         Relationships: [
           {
