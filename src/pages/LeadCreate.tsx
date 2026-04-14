@@ -240,11 +240,28 @@ export default function LeadCreate() {
             <input type="checkbox" checked={form.urgency_flag} onChange={(e) => set("urgency_flag", e.target.checked)} className="rounded" />
             Markér som hastende
           </label>
-        </div>
-
-        <div className="rounded-lg border bg-card p-4 space-y-3">
-          <h2 className="text-sm font-semibold">Tekniske detaljer</h2>
+          <div>
+            <Label className="text-xs">Hastegrad (beskrivelse)</Label>
+            <Input value={form.urgency_status} onChange={(e) => set("urgency_status", e.target.value)} placeholder="Akut, inden 2 uger..." />
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs">Gulvhistorik</Label>
+              <Input value={form.floor_history} onChange={(e) => set("floor_history", e.target.value)} placeholder="Tidligere behandlinger..." />
+            </div>
+            <div>
+              <Label className="text-xs">Ønsket udseende</Label>
+              <Input value={form.desired_look} onChange={(e) => set("desired_look", e.target.value)} placeholder="Kundens ønskede resultat..." />
+            </div>
+            <div>
+              <Label className="text-xs">Kvalitetsforventning</Label>
+              <Input value={form.quality_expectation} onChange={(e) => set("quality_expectation", e.target.value)} placeholder="Standard, premium..." />
+            </div>
+            <div>
+              <Label className="text-xs">Tidsramme</Label>
+              <Input value={form.time_requirement} onChange={(e) => set("time_requirement", e.target.value)} placeholder="Hvornår skal det laves?" />
+            </div>
+          </div>
             <div>
               <Label className="text-xs">Etage</Label>
               <Input value={form.floor_level} onChange={(e) => set("floor_level", e.target.value)} type="number" min="0" />
