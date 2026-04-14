@@ -653,6 +653,12 @@ function DetailView({ lead }: { lead: Lead }) {
       )}
       {lead.elevator_info && <InfoRow label="Elevator" value={lead.elevator_info} />}
       {(lead as any).has_elevator && <InfoRow label="Elevator tilgængelig" value="Ja" />}
+      {(lead as any).power_13a_available && <InfoRow label="13A strøm" value="Ja" />}
+      {(lead as any).floor_history && <InfoRow label="Gulvhistorik" value={(lead as any).floor_history} />}
+      {(lead as any).desired_look && <InfoRow label="Ønsket udseende" value={(lead as any).desired_look} />}
+      {(lead as any).quality_expectation && <InfoRow label="Kvalitetsforventning" value={(lead as any).quality_expectation} />}
+      {(lead as any).time_requirement && <InfoRow label="Tidsramme" value={(lead as any).time_requirement} />}
+      {(lead as any).urgency_status && <InfoRow label="Hastegrad" value={(lead as any).urgency_status} />}
       {lead.lead_message && (
         <div>
           <span className="text-muted-foreground">Besked:</span>
