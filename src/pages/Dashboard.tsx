@@ -6,7 +6,7 @@ import DashboardWidget from "@/components/DashboardWidget";
 import StatusBadge from "@/components/StatusBadge";
 import PriorityFeed from "@/components/PriorityFeed";
 import { useIsAdmin } from "@/hooks/useUserRole";
-import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2, TrendingUp } from "lucide-react";
+import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2, TrendingUp, PhoneCall, CalendarCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
 
@@ -25,6 +25,10 @@ export default function Dashboard() {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalProfit, setTotalProfit] = useState(0);
 
+  // New widgets
+  const [dailyCallCount, setDailyCallCount] = useState(0);
+  const [inspectionCount, setInspectionCount] = useState(0);
+
   useEffect(() => {
     async function load() {
       const today = new Date();
@@ -32,7 +36,7 @@ export default function Dashboard() {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
-      const [newRes, urgentRes, followupRes, remindersRes] = await Promise.all([
+      const [newRes, urgentRes, followupRes, remindersRes, callsRes, inspRes] = await Promise.all([
         supabase
           .from("leads")
           .select("*")
@@ -55,12 +59,25 @@ export default function Dashboard() {
           .eq("status", "pending")
           .order("due_at", { ascending: true })
           .limit(20),
+        // Daily call count
+        supabase
+          .from("communication_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("type", "phone_call")
+          .gte("created_at", today.toISOString()),
+        // Inspection scheduled count
+        supabase
+          .from("leads")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "inspection_scheduled" as any),
       ]);
 
       setNewLeads(newRes.data ?? []);
       setUrgentLeads(urgentRes.data ?? []);
       setFollowUpsToday(followupRes.data ?? []);
       setReminders(remindersRes.data ?? []);
+      setDailyCallCount(callsRes.count ?? 0);
+      setInspectionCount(inspRes.count ?? 0);
 
       // Finance: aggregate revenue/costs for won leads
       const { data: wonLeads } = await supabase
@@ -132,7 +149,7 @@ export default function Dashboard() {
       )}
 
       {/* Widgets grid */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <DashboardWidget
           title="Nye leads"
           count={newLeads.length}
@@ -220,6 +237,22 @@ export default function Dashboard() {
             </div>
           )}
         </DashboardWidget>
+
+        {/* Daily Call Counter */}
+        <DashboardWidget
+          title="Opkald i dag"
+          count={dailyCallCount}
+          icon={<PhoneCall className="h-4 w-4" />}
+          accent="default"
+        />
+
+        {/* Inspection Scheduled Count */}
+        <DashboardWidget
+          title="Inspektioner booket"
+          count={inspectionCount}
+          icon={<CalendarCheck className="h-4 w-4" />}
+          accent={inspectionCount > 0 ? "warning" : "default"}
+        />
       </div>
 
       {/* Priority Feed */}

@@ -7,6 +7,8 @@ import StatusBadge from "@/components/StatusBadge";
 import CommunicationTimeline from "@/components/CommunicationTimeline";
 import LeadAiPanel from "@/components/LeadAiPanel";
 import MissingInfoChecklist from "@/components/MissingInfoChecklist";
+import MobileCallView from "@/components/MobileCallView";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import StatusBadge from "@/components/StatusBadge";
 import { LEAD_STATUS_LABELS, LEAD_SOURCE_LABELS } from "@/lib/constants";
-import { AlertTriangle, Search, Filter, Plus, ImageOff, Ruler, Wrench, Clock } from "lucide-react";
+import { AlertTriangle, Search, Filter, Plus, ImageOff, Ruler, Wrench, Clock, Flame } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, differenceInHours } from "date-fns";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -55,6 +55,42 @@ function MissingInfoBadges({ lead }: { lead: Lead }) {
       ))}
     </div>
   );
+}
+
+/** Check if a lead in 'new' status has been waiting >12h without contact */
+function isUrgentNewLead(lead: Lead): boolean {
+  if (lead.status !== "new") return false;
+  if (lead.last_contacted_at) return false;
+  const ageHours = differenceInHours(new Date(), new Date(lead.created_at));
+  return ageHours >= 12;
+}
+
+/** Sort leads by urgency priority */
+function sortLeadsByPriority(leads: Lead[]): Lead[] {
+  const now = new Date();
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  return [...leads].sort((a, b) => {
+    // Priority 1: Urgent flag
+    if (a.urgency_flag && !b.urgency_flag) return -1;
+    if (!a.urgency_flag && b.urgency_flag) return 1;
+
+    // Priority 2: New leads < 24h
+    const aIsNew24h = a.status === "new" && differenceInHours(now, new Date(a.created_at)) < 24;
+    const bIsNew24h = b.status === "new" && differenceInHours(now, new Date(b.created_at)) < 24;
+    if (aIsNew24h && !bIsNew24h) return -1;
+    if (!aIsNew24h && bIsNew24h) return 1;
+
+    // Priority 3: next_followup_at <= today
+    const aFollowup = a.next_followup_at ? new Date(a.next_followup_at) <= todayEnd : false;
+    const bFollowup = b.next_followup_at ? new Date(b.next_followup_at) <= todayEnd : false;
+    if (aFollowup && !bFollowup) return -1;
+    if (!aFollowup && bFollowup) return 1;
+
+    // Default: newest first
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 }
 
 export default function LeadList() {
@@ -98,6 +134,8 @@ export default function LeadList() {
     );
   });
 
+  const sorted = sortLeadsByPriority(filtered);
+
   const submitQuickLead = async () => {
     if (!qlName.trim()) { toast.error("Navn er påkrævet"); return; }
     setQlSaving(true);
@@ -122,7 +160,7 @@ export default function LeadList() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight">Leads</h1>
         <span className="text-sm text-muted-foreground tabular-nums">
-          {filtered.length} {filtered.length === 1 ? "lead" : "leads"}
+          {sorted.length} {sorted.length === 1 ? "lead" : "leads"}
         </span>
       </div>
 
@@ -190,7 +228,7 @@ export default function LeadList() {
             <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
             {search ? "Ingen leads matcher din søgning" : "Ingen leads fundet"}
@@ -198,30 +236,42 @@ export default function LeadList() {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((lead) => (
-            <Link
-              key={lead.id}
-              to={`/leads/${lead.id}`}
-              className="flex items-center justify-between rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow active:scale-[0.99]"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium truncate">{lead.name}</p>
-                  {lead.urgency_flag && (
-                    <AlertTriangle className="h-3.5 w-3.5 text-status-urgent shrink-0" />
-                  )}
+          {sorted.map((lead) => {
+            const urgentNew = isUrgentNewLead(lead);
+            return (
+              <Link
+                key={lead.id}
+                to={`/leads/${lead.id}`}
+                className={cn(
+                  "flex items-center justify-between rounded-lg border bg-card p-3 hover:shadow-sm transition-shadow active:scale-[0.99]",
+                  urgentNew && "border-l-4 border-l-destructive animate-pulse-subtle"
+                )}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{lead.name}</p>
+                    {lead.urgency_flag && (
+                      <AlertTriangle className="h-3.5 w-3.5 text-status-urgent shrink-0" />
+                    )}
+                    {urgentNew && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-destructive/15 text-destructive px-1.5 py-0.5 text-[10px] font-semibold">
+                        <Flame className="h-2.5 w-2.5" />
+                        Ikke kontaktet
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {lead.city && `${lead.city} · `}
+                    {lead.square_meters && `${lead.square_meters} m² · `}
+                    {LEAD_SOURCE_LABELS[lead.source] ?? lead.source} ·{" "}
+                    {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: da })}
+                  </p>
+                  <MissingInfoBadges lead={lead} />
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {lead.city && `${lead.city} · `}
-                  {lead.square_meters && `${lead.square_meters} m² · `}
-                  {LEAD_SOURCE_LABELS[lead.source] ?? lead.source} ·{" "}
-                  {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: da })}
-                </p>
-                <MissingInfoBadges lead={lead} />
-              </div>
-              <StatusBadge status={lead.status} className="ml-2 shrink-0" />
-            </Link>
-          ))}
+                <StatusBadge status={lead.status} className="ml-2 shrink-0" />
+              </Link>
+            );
+          })}
         </div>
       )}
 
