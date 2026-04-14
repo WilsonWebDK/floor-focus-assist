@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp, Users, Star, FileText, Bell, ShieldAlert, Lightbulb, Route, BookOpen, Mail, Info } from "lucide-react";
+import { Brain, Flame, Puzzle, Copy, Calculator, Loader2, Sparkles, ChevronDown, ChevronUp, Users, Star, FileText, Bell, ShieldAlert, Lightbulb, Route, BookOpen, Mail, Info, Wand2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,9 @@ interface AiAnalysisFlags {
   potential_challenges?: string;
   recommended_approach?: string;
   suggested_draft?: string;
+  suggested_sqm?: number | null;
+  suggested_floor_level?: number | null;
+  suggested_has_elevator?: boolean | null;
   analyzed_at?: string;
 }
 
@@ -44,6 +47,9 @@ interface LeadAiPanelProps {
   aiAnalysisFlags: AiAnalysisFlags | null;
   suggestedPrice: SuggestedPrice | null;
   quoteContent: string | null;
+  squareMeters: number | null;
+  floorLevel: number | null;
+  hasElevator: boolean | null;
   onAnalyzed: () => void;
 }
 
@@ -56,6 +62,9 @@ export default function LeadAiPanel({
   aiAnalysisFlags,
   suggestedPrice,
   quoteContent,
+  squareMeters,
+  floorLevel,
+  hasElevator,
   onAnalyzed,
 }: LeadAiPanelProps) {
   const { user } = useAuth();
@@ -63,6 +72,8 @@ export default function LeadAiPanel({
   const [estimating, setEstimating] = useState(false);
   const [matching, setMatching] = useState(false);
   const [generatingQuote, setGeneratingQuote] = useState(false);
+  const [applyingSuggestions, setApplyingSuggestions] = useState(false);
+  const [applyingPrice, setApplyingPrice] = useState(false);
   const [supplierMatches, setSupplierMatches] = useState<SupplierMatch[]>([]);
   const [expanded, setExpanded] = useState(true);
   const [localQuote, setLocalQuote] = useState(quoteContent || "");
@@ -173,9 +184,56 @@ export default function LeadAiPanel({
     toast.success("Tilbud kopieret til udklipsholder");
   };
 
+  const applyAiSuggestions = async () => {
+    if (!aiAnalysisFlags) return;
+    setApplyingSuggestions(true);
+    const updates: Record<string, unknown> = {};
+    if (aiAnalysisFlags.suggested_sqm != null && !squareMeters) {
+      updates.square_meters = aiAnalysisFlags.suggested_sqm;
+    }
+    if (aiAnalysisFlags.suggested_floor_level != null && !floorLevel) {
+      updates.floor_level = aiAnalysisFlags.suggested_floor_level;
+    }
+    if (aiAnalysisFlags.suggested_has_elevator != null && !hasElevator) {
+      updates.has_elevator = aiAnalysisFlags.suggested_has_elevator;
+    }
+    if (Object.keys(updates).length === 0) {
+      toast.info("Alle felter er allerede udfyldt");
+      setApplyingSuggestions(false);
+      return;
+    }
+    const { error } = await supabase.from("leads").update(updates).eq("id", leadId);
+    setApplyingSuggestions(false);
+    if (error) {
+      toast.error("Kunne ikke anvende AI-forslag");
+      return;
+    }
+    toast.success("AI-forslag anvendt på leadet");
+    onAnalyzed();
+  };
+
+  const applyAiPrice = async () => {
+    if (!suggestedPrice?.price_max) return;
+    setApplyingPrice(true);
+    const revenue = suggestedPrice.price_max;
+    const actualCosts = Math.round(revenue * 0.7);
+    const { error } = await supabase.from("leads").update({
+      revenue,
+      actual_costs: actualCosts,
+    }).eq("id", leadId);
+    setApplyingPrice(false);
+    if (error) {
+      toast.error("Kunne ikke opdatere økonomi");
+      return;
+    }
+    toast.success("Økonomi opdateret med 70% dækningsbidrag-estimat");
+    onAnalyzed();
+  };
+
   const hasAnalysis = !!aiAnalysisFlags?.analyzed_at;
   const hasRundown = !!(aiAnalysisFlags?.complexity_analysis || aiAnalysisFlags?.potential_challenges || aiAnalysisFlags?.recommended_approach);
   const hasPrice = !!suggestedPrice?.price_min;
+  const hasSuggestions = !!(aiAnalysisFlags?.suggested_sqm != null || aiAnalysisFlags?.suggested_floor_level != null || aiAnalysisFlags?.suggested_has_elevator != null);
 
   const formatPrice = (n: number) =>
     n.toLocaleString("da-DK", { style: "decimal", maximumFractionDigits: 0 });
@@ -227,6 +285,46 @@ export default function LeadAiPanel({
                   content={aiAnalysisFlags.recommended_approach}
                 />
               )}
+            </div>
+          )}
+
+          {/* 2.5 AI Auto-fill suggestions */}
+          {hasSuggestions && (
+            <div className="border-t pt-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Wand2 className="h-3.5 w-3.5" />
+                AI-udtrukne felter
+              </p>
+              <div className="rounded-lg bg-accent/30 p-3 space-y-1.5">
+                {aiAnalysisFlags?.suggested_sqm != null && (
+                  <p className="text-xs">
+                    <span className="font-medium">m²:</span> {aiAnalysisFlags.suggested_sqm}
+                    {squareMeters ? <span className="text-muted-foreground ml-1">(allerede udfyldt: {squareMeters})</span> : null}
+                  </p>
+                )}
+                {aiAnalysisFlags?.suggested_floor_level != null && (
+                  <p className="text-xs">
+                    <span className="font-medium">Etage:</span> {aiAnalysisFlags.suggested_floor_level}
+                    {floorLevel ? <span className="text-muted-foreground ml-1">(allerede udfyldt: {floorLevel})</span> : null}
+                  </p>
+                )}
+                {aiAnalysisFlags?.suggested_has_elevator != null && (
+                  <p className="text-xs">
+                    <span className="font-medium">Elevator:</span> {aiAnalysisFlags.suggested_has_elevator ? "Ja" : "Nej"}
+                    {hasElevator != null ? <span className="text-muted-foreground ml-1">(allerede udfyldt)</span> : null}
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs mt-2"
+                  onClick={applyAiSuggestions}
+                  disabled={applyingSuggestions}
+                >
+                  {applyingSuggestions ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+                  Anvend AI-forslag
+                </Button>
+              </div>
             </div>
           )}
 
@@ -358,11 +456,21 @@ export default function LeadAiPanel({
                     </div>
                   </div>
                 )}
+                {/* Apply AI price button */}
+                <Button
+                  size="sm"
+                  className="w-full mt-2 h-8 text-xs"
+                  onClick={applyAiPrice}
+                  disabled={applyingPrice}
+                >
+                  {applyingPrice ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <DollarSign className="h-3 w-3 mr-1" />}
+                  Anvend AI pris på økonomi
+                </Button>
               </div>
             )}
           </div>
 
-          {/* 6. Quote generation with Coming Soon badge */}
+          {/* 6. Quote generation */}
           <div className="border-t pt-4">
             <div className="flex items-center gap-2 mb-2">
               <Button variant="outline" size="sm" onClick={generateQuote} disabled={generatingQuote} className="flex-1">
@@ -387,7 +495,7 @@ export default function LeadAiPanel({
             )}
           </div>
 
-          {/* 7. Supplier matching with Coming Soon badge */}
+          {/* 7. Supplier matching */}
           <div className="border-t pt-4">
             <div className="flex items-center gap-2 mb-2">
               <Button variant="outline" size="sm" onClick={() => runSupplierMatch(false)} disabled={matching} className="flex-1">

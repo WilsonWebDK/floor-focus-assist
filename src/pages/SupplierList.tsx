@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
-import { Phone, Mail, MapPin, Plus, Pencil, Trash2, X } from "lucide-react";
+import { Phone, Mail, MapPin, Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import {
   Dialog,
   DialogContent,
@@ -19,21 +20,54 @@ import { toast } from "sonner";
 
 type Supplier = Tables<"suppliers">;
 
-const EMPTY_FORM = {
+const SCORE_FIELDS = [
+  { key: "score_floor_sanding", label: "Gulvslibning" },
+  { key: "score_floor_laying", label: "Gulvlægning" },
+  { key: "score_surface_treatment", label: "Overfladebehandling" },
+  { key: "score_terrace", label: "Terrasse" },
+  { key: "score_danish_language", label: "Dansk sprog" },
+  { key: "score_reliability", label: "Pålidelighed" },
+] as const;
+
+type ScoreKey = typeof SCORE_FIELDS[number]["key"];
+
+interface FormState {
+  name: string;
+  phone: string;
+  email: string;
+  skills: string;
+  cities_served: string;
+  can_do_carpentry: boolean;
+  speaks_good_danish: boolean;
+  general_notes: string;
+  reliability_notes: string;
+  capacity_notes: string;
+  score_floor_sanding: number;
+  score_floor_laying: number;
+  score_surface_treatment: number;
+  score_terrace: number;
+  score_danish_language: number;
+  score_reliability: number;
+}
+
+const EMPTY_FORM: FormState = {
   name: "",
   phone: "",
   email: "",
   skills: "",
   cities_served: "",
-  quality_score: "",
-  price_level: "",
   can_do_carpentry: false,
   speaks_good_danish: true,
   general_notes: "",
   reliability_notes: "",
+  capacity_notes: "",
+  score_floor_sanding: 5,
+  score_floor_laying: 5,
+  score_surface_treatment: 5,
+  score_terrace: 5,
+  score_danish_language: 5,
+  score_reliability: 5,
 };
-
-type FormState = typeof EMPTY_FORM;
 
 function toForm(s: Supplier): FormState {
   return {
@@ -42,17 +76,27 @@ function toForm(s: Supplier): FormState {
     email: s.email ?? "",
     skills: (s.skills ?? []).join(", "),
     cities_served: (s.cities_served ?? []).join(", "),
-    quality_score: s.quality_score != null ? String(s.quality_score) : "",
-    price_level: s.price_level ?? "",
     can_do_carpentry: s.can_do_carpentry ?? false,
     speaks_good_danish: s.speaks_good_danish ?? true,
     general_notes: s.general_notes ?? "",
     reliability_notes: s.reliability_notes ?? "",
+    capacity_notes: s.capacity_notes ?? "",
+    score_floor_sanding: s.score_floor_sanding ?? 5,
+    score_floor_laying: s.score_floor_laying ?? 5,
+    score_surface_treatment: s.score_surface_treatment ?? 5,
+    score_terrace: s.score_terrace ?? 5,
+    score_danish_language: s.score_danish_language ?? 5,
+    score_reliability: s.score_reliability ?? 5,
   };
 }
 
 function splitList(s: string): string[] {
   return s.split(",").map((x) => x.trim()).filter(Boolean);
+}
+
+function avgScore(s: Supplier): number {
+  const scores = SCORE_FIELDS.map((f) => (s[f.key] as number) ?? 5);
+  return Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10;
 }
 
 export default function SupplierList() {
@@ -94,12 +138,17 @@ export default function SupplierList() {
       email: form.email || null,
       skills: splitList(form.skills),
       cities_served: splitList(form.cities_served),
-      quality_score: form.quality_score ? Number(form.quality_score) : null,
-      price_level: form.price_level || null,
       can_do_carpentry: form.can_do_carpentry,
       speaks_good_danish: form.speaks_good_danish,
       general_notes: form.general_notes || null,
       reliability_notes: form.reliability_notes || null,
+      capacity_notes: form.capacity_notes || null,
+      score_floor_sanding: form.score_floor_sanding,
+      score_floor_laying: form.score_floor_laying,
+      score_surface_treatment: form.score_surface_treatment,
+      score_terrace: form.score_terrace,
+      score_danish_language: form.score_danish_language,
+      score_reliability: form.score_reliability,
     };
 
     let error;
@@ -163,11 +212,9 @@ export default function SupplierList() {
                   )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  {s.quality_score != null && (
-                    <span className="text-xs font-medium bg-primary/10 text-primary rounded-full px-2 py-0.5 mr-1">
-                      {s.quality_score}/10
-                    </span>
-                  )}
+                  <span className="text-xs font-medium bg-primary/10 text-primary rounded-full px-2 py-0.5 mr-1">
+                    Gns: {avgScore(s)}/10
+                  </span>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -193,9 +240,14 @@ export default function SupplierList() {
                   </span>
                 )}
               </div>
-              {s.price_level && (
-                <p className="text-xs text-muted-foreground">Prisniveau: {s.price_level}</p>
-              )}
+              {/* Score badges */}
+              <div className="flex flex-wrap gap-1.5">
+                {SCORE_FIELDS.map((f) => (
+                  <span key={f.key} className="text-[10px] rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">
+                    {f.label}: {(s[f.key] as number) ?? 5}
+                  </span>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -233,16 +285,27 @@ export default function SupplierList() {
               <Label className="text-xs">Byer (kommasepareret)</Label>
               <Input value={form.cities_served} onChange={(e) => set("cities_served", e.target.value)} placeholder="København, Aarhus..." />
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label className="text-xs">Kvalitetsscore (1-10)</Label>
-                <Input value={form.quality_score} onChange={(e) => set("quality_score", e.target.value)} type="number" min="1" max="10" />
-              </div>
-              <div>
-                <Label className="text-xs">Prisniveau</Label>
-                <Input value={form.price_level} onChange={(e) => set("price_level", e.target.value)} placeholder="Lav, middel, høj..." />
-              </div>
+
+            {/* Score sliders */}
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Vurderinger (1-10)</p>
+              {SCORE_FIELDS.map((f) => (
+                <div key={f.key} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">{f.label}</Label>
+                    <span className="text-xs font-medium tabular-nums">{form[f.key]}/10</span>
+                  </div>
+                  <Slider
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={[form[f.key]]}
+                    onValueChange={([v]) => set(f.key, v)}
+                  />
+                </div>
+              ))}
             </div>
+
             <div className="flex gap-6">
               <label className="flex items-center gap-2 text-sm">
                 <Switch checked={form.can_do_carpentry} onCheckedChange={(v) => set("can_do_carpentry", v)} />
@@ -252,6 +315,10 @@ export default function SupplierList() {
                 <Switch checked={form.speaks_good_danish} onCheckedChange={(v) => set("speaks_good_danish", v)} />
                 Godt dansk
               </label>
+            </div>
+            <div>
+              <Label className="text-xs">Kapacitetsnoter</Label>
+              <Textarea value={form.capacity_notes} onChange={(e) => set("capacity_notes", e.target.value)} rows={2} placeholder="Nuværende kapacitet, bemanding..." />
             </div>
             <div>
               <Label className="text-xs">Generelle noter</Label>
