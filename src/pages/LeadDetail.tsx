@@ -6,6 +6,7 @@ import type { Enums } from "@/integrations/supabase/types";
 import StatusBadge from "@/components/StatusBadge";
 import CommunicationTimeline from "@/components/CommunicationTimeline";
 import LeadAiPanel from "@/components/LeadAiPanel";
+import MissingInfoChecklist from "@/components/MissingInfoChecklist";
 import {
   LEAD_STATUS_LABELS,
   LEAD_SOURCE_LABELS,
@@ -32,6 +33,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   ArrowLeft,
   Phone,
   Mail,
@@ -47,6 +53,7 @@ import {
   Users,
   DollarSign,
   Send,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
@@ -154,7 +161,14 @@ export default function LeadDetail() {
       urgency_flag: editData.urgency_flag,
       complexity_flag: editData.complexity_flag,
       internal_notes: editData.internal_notes,
-    };
+    } as any;
+    // New technical fields
+    (updates as any).power_13a_available = (editData as any).power_13a_available;
+    (updates as any).floor_history = (editData as any).floor_history;
+    (updates as any).desired_look = (editData as any).desired_look;
+    (updates as any).urgency_status = (editData as any).urgency_status;
+    (updates as any).quality_expectation = (editData as any).quality_expectation;
+    (updates as any).time_requirement = (editData as any).time_requirement;
     const { error } = await supabase.from("leads").update(updates).eq("id", id);
     if (error) { toast.error("Kunne ikke gemme"); setSaving(false); return; }
     setLead((prev) => prev ? { ...prev, ...updates } : prev);
@@ -462,6 +476,21 @@ export default function LeadDetail() {
         )}
       </div>
 
+      {/* Missing Info Checklist */}
+      <MissingInfoChecklist lead={lead} />
+
+      {/* PDF Quote Placeholder */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="outline" className="w-full gap-2" disabled>
+            <FileText className="h-4 w-4" />
+            PDF Tilbud
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Kommer snart — Google Slides integration</p>
+        </TooltipContent>
+      </Tooltip>
       {/* AI Insights Panel */}
       <LeadAiPanel
         leadId={lead.id}
@@ -567,7 +596,12 @@ function EditForm({ editData, setEditData }: { editData: Partial<Lead>; setEditD
         </Select>
       </div>
       <div><Label className="text-xs">Elevator (note)</Label><Input value={editData.elevator_info ?? ""} onChange={(e) => setEditData({ ...editData, elevator_info: e.target.value })} /></div>
-      <div className="sm:col-span-2 flex gap-4">
+      <div><Label className="text-xs">Gulvhistorik</Label><Input value={(editData as any).floor_history ?? ""} onChange={(e) => setEditData({ ...editData, floor_history: e.target.value } as any)} placeholder="Tidligere behandlinger..." /></div>
+      <div><Label className="text-xs">Ønsket udseende</Label><Input value={(editData as any).desired_look ?? ""} onChange={(e) => setEditData({ ...editData, desired_look: e.target.value } as any)} placeholder="Kundens ønskede resultat..." /></div>
+      <div><Label className="text-xs">Kvalitetsforventning</Label><Input value={(editData as any).quality_expectation ?? ""} onChange={(e) => setEditData({ ...editData, quality_expectation: e.target.value } as any)} /></div>
+      <div><Label className="text-xs">Tidsramme</Label><Input value={(editData as any).time_requirement ?? ""} onChange={(e) => setEditData({ ...editData, time_requirement: e.target.value } as any)} placeholder="Hvornår skal det laves?" /></div>
+      <div><Label className="text-xs">Hastegrad (beskrivelse)</Label><Input value={(editData as any).urgency_status ?? ""} onChange={(e) => setEditData({ ...editData, urgency_status: e.target.value } as any)} /></div>
+      <div className="sm:col-span-2 flex flex-wrap gap-4">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={editData.urgency_flag ?? false} onChange={(e) => setEditData({ ...editData, urgency_flag: e.target.checked })} className="rounded" />
           Haster
@@ -579,6 +613,10 @@ function EditForm({ editData, setEditData }: { editData: Partial<Lead>; setEditD
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={(editData as any).has_elevator ?? false} onChange={(e) => setEditData({ ...editData, has_elevator: e.target.checked } as any)} className="rounded" />
           Elevator
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={(editData as any).power_13a_available ?? false} onChange={(e) => setEditData({ ...editData, power_13a_available: e.target.checked } as any)} className="rounded" />
+          13A strøm
         </label>
       </div>
       <div className="sm:col-span-2">
@@ -615,6 +653,12 @@ function DetailView({ lead }: { lead: Lead }) {
       )}
       {lead.elevator_info && <InfoRow label="Elevator" value={lead.elevator_info} />}
       {(lead as any).has_elevator && <InfoRow label="Elevator tilgængelig" value="Ja" />}
+      {(lead as any).power_13a_available && <InfoRow label="13A strøm" value="Ja" />}
+      {(lead as any).floor_history && <InfoRow label="Gulvhistorik" value={(lead as any).floor_history} />}
+      {(lead as any).desired_look && <InfoRow label="Ønsket udseende" value={(lead as any).desired_look} />}
+      {(lead as any).quality_expectation && <InfoRow label="Kvalitetsforventning" value={(lead as any).quality_expectation} />}
+      {(lead as any).time_requirement && <InfoRow label="Tidsramme" value={(lead as any).time_requirement} />}
+      {(lead as any).urgency_status && <InfoRow label="Hastegrad" value={(lead as any).urgency_status} />}
       {lead.lead_message && (
         <div>
           <span className="text-muted-foreground">Besked:</span>

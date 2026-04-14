@@ -44,6 +44,12 @@ export default function LeadCreate() {
     floor_separation_type: "",
     doorsteps_count: "0",
     stairs_count: "0",
+    power_13a_available: false,
+    floor_history: "",
+    desired_look: "",
+    urgency_status: "",
+    quality_expectation: "",
+    time_requirement: "",
   });
 
   const [postalError, setPostalError] = useState("");
@@ -104,6 +110,12 @@ export default function LeadCreate() {
       doorsteps_count: Number(form.doorsteps_count) || 0,
       stairs_count: Number(form.stairs_count) || 0,
       category: region,
+      power_13a_available: form.power_13a_available,
+      floor_history: form.floor_history || null,
+      desired_look: form.desired_look || null,
+      urgency_status: form.urgency_status || null,
+      quality_expectation: form.quality_expectation || null,
+      time_requirement: form.time_requirement || null,
     } as any);
 
     if (error) {
@@ -228,6 +240,28 @@ export default function LeadCreate() {
             <input type="checkbox" checked={form.urgency_flag} onChange={(e) => set("urgency_flag", e.target.checked)} className="rounded" />
             Markér som hastende
           </label>
+          <div>
+            <Label className="text-xs">Hastegrad (beskrivelse)</Label>
+            <Input value={form.urgency_status} onChange={(e) => set("urgency_status", e.target.value)} placeholder="Akut, inden 2 uger..." />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label className="text-xs">Gulvhistorik</Label>
+              <Input value={form.floor_history} onChange={(e) => set("floor_history", e.target.value)} placeholder="Tidligere behandlinger..." />
+            </div>
+            <div>
+              <Label className="text-xs">Ønsket udseende</Label>
+              <Input value={form.desired_look} onChange={(e) => set("desired_look", e.target.value)} placeholder="Kundens ønskede resultat..." />
+            </div>
+            <div>
+              <Label className="text-xs">Kvalitetsforventning</Label>
+              <Input value={form.quality_expectation} onChange={(e) => set("quality_expectation", e.target.value)} placeholder="Standard, premium..." />
+            </div>
+            <div>
+              <Label className="text-xs">Tidsramme</Label>
+              <Input value={form.time_requirement} onChange={(e) => set("time_requirement", e.target.value)} placeholder="Hvornår skal det laves?" />
+            </div>
+          </div>
         </div>
 
         <div className="rounded-lg border bg-card p-4 space-y-3">
@@ -264,6 +298,12 @@ export default function LeadCreate() {
               <label className="flex items-center gap-2 text-sm pb-2">
                 <input type="checkbox" checked={form.has_elevator} onChange={(e) => set("has_elevator", e.target.checked)} className="rounded" />
                 Elevator tilgængelig
+              </label>
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 text-sm pb-2">
+                <input type="checkbox" checked={form.power_13a_available} onChange={(e) => set("power_13a_available", e.target.checked)} className="rounded" />
+                13A strøm tilgængelig
               </label>
             </div>
           </div>
