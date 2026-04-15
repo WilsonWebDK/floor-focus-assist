@@ -304,6 +304,10 @@ export default function LeadDetail() {
           <h1 className="text-lg font-bold truncate">{lead.name}</h1>
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <StatusBadge status={lead.status} />
+            <LeadScoreBadge
+              manualScore={(lead as any).manual_lead_score ?? null}
+              calculatedScore={(lead as any).calculated_lead_score ?? null}
+            />
             {lead.urgency_flag && (
               <span className="inline-flex items-center gap-1 text-xs font-medium text-status-urgent">
                 <AlertTriangle className="h-3 w-3" /> Haster
@@ -315,6 +319,22 @@ export default function LeadDetail() {
               </span>
             )}
           </div>
+          {/* Labels */}
+          {((lead as any).labels as string[] || []).length > 0 && (
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {((lead as any).labels as string[]).map((label) => (
+                <span
+                  key={label}
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                    LABEL_COLORS[label] ?? "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
