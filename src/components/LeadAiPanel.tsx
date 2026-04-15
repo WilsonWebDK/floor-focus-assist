@@ -480,6 +480,11 @@ export default function LeadAiPanel({
             )}
           </div>
 
+          {/* 5.5. Interactive Price Calculator */}
+          <div className="border-t pt-4">
+            <PriceCalculator leadId={leadId} squareMeters={squareMeters} onSaved={onAnalyzed} />
+          </div>
+
           {/* 6. Quote generation */}
           <div className="border-t pt-4">
             <div className="flex items-center gap-2 mb-2">
