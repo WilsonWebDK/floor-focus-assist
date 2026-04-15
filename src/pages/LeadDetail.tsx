@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import type { Enums } from "@/integrations/supabase/types";
 import StatusBadge from "@/components/StatusBadge";
+import LeadScoreBadge from "@/components/LeadScoreBadge";
 import CommunicationTimeline from "@/components/CommunicationTimeline";
 import LeadAiPanel from "@/components/LeadAiPanel";
 import MissingInfoChecklist from "@/components/MissingInfoChecklist";
@@ -15,6 +16,8 @@ import {
   COMM_TYPE_LABELS,
   COMM_DIRECTION_LABELS,
   PARKING_STATUS_LABELS,
+  LABEL_OPTIONS,
+  LABEL_COLORS,
 } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useUserRole";
@@ -22,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -57,11 +61,12 @@ import {
   Send,
   FileText,
   ImageIcon,
-} from "lucide-react";
+  } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Lead = Tables<"leads">;
 type CommLog = Tables<"communication_logs">;

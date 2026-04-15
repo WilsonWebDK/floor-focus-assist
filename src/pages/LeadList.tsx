@@ -3,7 +3,8 @@ import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import StatusBadge from "@/components/StatusBadge";
-import { LEAD_STATUS_LABELS, LEAD_SOURCE_LABELS } from "@/lib/constants";
+import LeadScoreBadge from "@/components/LeadScoreBadge";
+import { LEAD_STATUS_LABELS, LEAD_SOURCE_LABELS, LABEL_COLORS } from "@/lib/constants";
 import { AlertTriangle, Search, Filter, Plus, ImageOff, Ruler, Wrench, Clock, Flame } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -241,6 +242,10 @@ export default function LeadList() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
+                    <LeadScoreBadge
+                      manualScore={(lead as any).manual_lead_score ?? null}
+                      calculatedScore={(lead as any).calculated_lead_score ?? null}
+                    />
                     <p className="text-sm font-medium truncate">{lead.name}</p>
                     {lead.urgency_flag && (
                       <AlertTriangle className="h-3.5 w-3.5 text-status-urgent shrink-0" />
@@ -263,6 +268,22 @@ export default function LeadList() {
                     {LEAD_SOURCE_LABELS[lead.source] ?? lead.source} ·{" "}
                     {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: da })}
                   </p>
+                  {/* Labels */}
+                  {(lead as any).labels?.length > 0 && (
+                    <div className="flex gap-1 mt-0.5 flex-wrap">
+                      {((lead as any).labels as string[]).map((label) => (
+                        <span
+                          key={label}
+                          className={cn(
+                            "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                            LABEL_COLORS[label] ?? "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <MissingInfoBadges lead={lead} />
                 </div>
                 <StatusBadge status={lead.status} className="ml-2 shrink-0" />
