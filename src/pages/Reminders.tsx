@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow, isToday, isBefore, startOfDay } from "date-fns";
 import { da } from "date-fns/locale";
-import { Check, Clock, RotateCcw, ExternalLink } from "lucide-react";
+import { Check, Clock, RotateCcw, ExternalLink, Bot, User } from "lucide-react";
 import { toast } from "sonner";
 
 type Reminder = Tables<"reminders">;
@@ -21,9 +22,11 @@ const TAB_LABELS: Record<FilterTab, string> = {
 };
 
 export default function Reminders() {
+  const { user } = useAuth();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterTab>("overdue");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "auto" | "manual">("all");
 
   const load = async () => {
     setLoading(true);
@@ -51,7 +54,7 @@ export default function Reminders() {
         const due = new Date(r.due_at);
         if (filter === "overdue") return isBefore(due, todayStart);
         if (filter === "today") return isToday(due);
-        return due >= tomorrowStart; // upcoming
+        return due >= tomorrowStart;
       });
       setReminders(filtered);
     }
@@ -73,6 +76,16 @@ export default function Reminders() {
   };
 
   const isOverdue = (due: string) => isBefore(new Date(due), startOfDay(new Date()));
+
+  // Split by source
+  const filteredBySource = reminders.filter((r) => {
+    if (sourceFilter === "all") return true;
+    if (sourceFilter === "auto") return !r.created_by;
+    return r.created_by === user?.id;
+  });
+
+  const autoCount = reminders.filter(r => !r.created_by).length;
+  const manualCount = reminders.filter(r => r.created_by === user?.id).length;
 
   return (
     <div className="space-y-4">
@@ -97,9 +110,31 @@ export default function Reminders() {
         ))}
       </div>
 
+      {/* Source filter */}
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => setSourceFilter("all")}
+          className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors", sourceFilter === "all" ? "bg-secondary text-secondary-foreground" : "bg-muted/50 text-muted-foreground hover:text-foreground")}
+        >
+          Alle ({reminders.length})
+        </button>
+        <button
+          onClick={() => setSourceFilter("auto")}
+          className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors flex items-center gap-1", sourceFilter === "auto" ? "bg-secondary text-secondary-foreground" : "bg-muted/50 text-muted-foreground hover:text-foreground")}
+        >
+          <Bot className="h-3 w-3" /> Automatiske ({autoCount})
+        </button>
+        <button
+          onClick={() => setSourceFilter("manual")}
+          className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors flex items-center gap-1", sourceFilter === "manual" ? "bg-secondary text-secondary-foreground" : "bg-muted/50 text-muted-foreground hover:text-foreground")}
+        >
+          <User className="h-3 w-3" /> Mine ({manualCount})
+        </button>
+      </div>
+
       {loading ? (
         <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}</div>
-      ) : reminders.length === 0 ? (
+      ) : filteredBySource.length === 0 ? (
         <div className="rounded-lg border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
             {filter === "overdue" && "Ingen forfaldne påmindelser 🎉"}
@@ -110,7 +145,7 @@ export default function Reminders() {
         </div>
       ) : (
         <div className="space-y-2">
-          {reminders.map((r) => (
+          {filteredBySource.map((r) => (
             <div
               key={r.id}
               className={cn(
@@ -118,7 +153,6 @@ export default function Reminders() {
                 filter === "overdue" && "border-destructive/30"
               )}
             >
-              {/* Urgency dot */}
               {filter === "overdue" && (
                 <span className="h-2 w-2 rounded-full bg-destructive animate-pulse shrink-0" />
               )}
@@ -127,7 +161,10 @@ export default function Reminders() {
               )}
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{r.title}</p>
+                <div className="flex items-center gap-1.5">
+                  {!r.created_by ? <Bot className="h-3 w-3 text-muted-foreground shrink-0" /> : <User className="h-3 w-3 text-muted-foreground shrink-0" />}
+                  <p className="text-sm font-medium truncate">{r.title}</p>
+                </div>
                 {r.description && <p className="text-xs text-muted-foreground truncate">{r.description}</p>}
                 <div className="flex items-center gap-2 mt-0.5">
                   <p className={cn(
