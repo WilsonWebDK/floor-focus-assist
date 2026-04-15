@@ -236,6 +236,7 @@ export type Database = {
           address: string | null
           ai_analysis_flags: Json | null
           assigned_to: string | null
+          calculated_lead_score: number | null
           category: string | null
           city: string | null
           complexity_flag: boolean | null
@@ -258,8 +259,10 @@ export type Database = {
           internal_notes: string | null
           is_priority: boolean | null
           job_type: string | null
+          labels: string[] | null
           last_contacted_at: string | null
           lead_message: string | null
+          manual_lead_score: number | null
           missing_info_summary: string | null
           name: string
           next_action_type: string | null
@@ -291,6 +294,7 @@ export type Database = {
           address?: string | null
           ai_analysis_flags?: Json | null
           assigned_to?: string | null
+          calculated_lead_score?: number | null
           category?: string | null
           city?: string | null
           complexity_flag?: boolean | null
@@ -313,8 +317,10 @@ export type Database = {
           internal_notes?: string | null
           is_priority?: boolean | null
           job_type?: string | null
+          labels?: string[] | null
           last_contacted_at?: string | null
           lead_message?: string | null
+          manual_lead_score?: number | null
           missing_info_summary?: string | null
           name: string
           next_action_type?: string | null
@@ -346,6 +352,7 @@ export type Database = {
           address?: string | null
           ai_analysis_flags?: Json | null
           assigned_to?: string | null
+          calculated_lead_score?: number | null
           category?: string | null
           city?: string | null
           complexity_flag?: boolean | null
@@ -368,8 +375,10 @@ export type Database = {
           internal_notes?: string | null
           is_priority?: boolean | null
           job_type?: string | null
+          labels?: string[] | null
           last_contacted_at?: string | null
           lead_message?: string | null
+          manual_lead_score?: number | null
           missing_info_summary?: string | null
           name?: string
           next_action_type?: string | null

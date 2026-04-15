@@ -70,3 +70,21 @@ export const NEXT_ACTION_LABELS: Record<string, string> = {
   schedule_inspection: "Book inspektion",
   follow_up: "Opfølgning",
 };
+
+export const LABEL_OPTIONS = [
+  "Erhverv",
+  "Forsikringssag",
+  "Google Ads lead",
+  "Hastesag",
+  "Nordsjælland",
+  "Privat",
+] as const;
+
+export const LABEL_COLORS: Record<string, string> = {
+  Erhverv: "bg-blue-500/15 text-blue-700",
+  Forsikringssag: "bg-orange-500/15 text-orange-700",
+  "Google Ads lead": "bg-emerald-500/15 text-emerald-700",
+  Hastesag: "bg-destructive/15 text-destructive",
+  Nordsjælland: "bg-purple-500/15 text-purple-700",
+  Privat: "bg-primary/15 text-primary",
+};

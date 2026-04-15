@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesUpdate } from "@/integrations/supabase/types";
 import type { Enums } from "@/integrations/supabase/types";
 import StatusBadge from "@/components/StatusBadge";
+import LeadScoreBadge from "@/components/LeadScoreBadge";
 import CommunicationTimeline from "@/components/CommunicationTimeline";
 import LeadAiPanel from "@/components/LeadAiPanel";
 import MissingInfoChecklist from "@/components/MissingInfoChecklist";
@@ -15,6 +16,8 @@ import {
   COMM_TYPE_LABELS,
   COMM_DIRECTION_LABELS,
   PARKING_STATUS_LABELS,
+  LABEL_OPTIONS,
+  LABEL_COLORS,
 } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useUserRole";
@@ -22,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -57,11 +61,12 @@ import {
   Send,
   FileText,
   ImageIcon,
-} from "lucide-react";
+  } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Lead = Tables<"leads">;
 type CommLog = Tables<"communication_logs">;
@@ -299,6 +304,10 @@ export default function LeadDetail() {
           <h1 className="text-lg font-bold truncate">{lead.name}</h1>
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <StatusBadge status={lead.status} />
+            <LeadScoreBadge
+              manualScore={(lead as any).manual_lead_score ?? null}
+              calculatedScore={(lead as any).calculated_lead_score ?? null}
+            />
             {lead.urgency_flag && (
               <span className="inline-flex items-center gap-1 text-xs font-medium text-status-urgent">
                 <AlertTriangle className="h-3 w-3" /> Haster
@@ -310,6 +319,22 @@ export default function LeadDetail() {
               </span>
             )}
           </div>
+          {/* Labels */}
+          {((lead as any).labels as string[] || []).length > 0 && (
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {((lead as any).labels as string[]).map((label) => (
+                <span
+                  key={label}
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                    LABEL_COLORS[label] ?? "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -429,7 +454,59 @@ export default function LeadDetail() {
         </div>
       </div>
 
-      {/* Economic Overview — Admin only */}
+      {/* Labels & Lead Score */}
+      <div className="rounded-lg border bg-card p-4 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold mb-2">Labels</h2>
+          <div className="flex flex-wrap gap-1.5">
+            {LABEL_OPTIONS.map((label) => {
+              const active = ((lead as any).labels as string[] || []).includes(label);
+              return (
+                <button
+                  key={label}
+                  onClick={async () => {
+                    const current = ((lead as any).labels as string[] || []);
+                    const next = active ? current.filter((l: string) => l !== label) : [...current, label];
+                    await supabase.from("leads").update({ labels: next } as any).eq("id", id!);
+                    setLead((prev) => prev ? { ...prev, labels: next } as any : prev);
+                  }}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-all active:scale-95",
+                    active
+                      ? LABEL_COLORS[label] ?? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-secondary"
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold mb-2">Lead score (manuel)</h2>
+          <div className="flex items-center gap-3">
+            <Slider
+              value={[(lead as any).manual_lead_score ?? (lead as any).calculated_lead_score ?? 5]}
+              min={0}
+              max={10}
+              step={1}
+              onValueCommit={async (val) => {
+                await supabase.from("leads").update({ manual_lead_score: val[0] } as any).eq("id", id!);
+                setLead((prev) => prev ? { ...prev, manual_lead_score: val[0] } as any : prev);
+                toast.success(`Lead score sat til ${val[0]}`);
+              }}
+              className="flex-1"
+            />
+            <LeadScoreBadge
+              manualScore={(lead as any).manual_lead_score ?? null}
+              calculatedScore={(lead as any).calculated_lead_score ?? null}
+              className="text-xs"
+            />
+          </div>
+        </div>
+      </div>
+
       {isAdmin && (
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <h2 className="text-sm font-semibold flex items-center gap-2">
