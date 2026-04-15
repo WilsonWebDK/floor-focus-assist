@@ -454,7 +454,59 @@ export default function LeadDetail() {
         </div>
       </div>
 
-      {/* Economic Overview — Admin only */}
+      {/* Labels & Lead Score */}
+      <div className="rounded-lg border bg-card p-4 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold mb-2">Labels</h2>
+          <div className="flex flex-wrap gap-1.5">
+            {LABEL_OPTIONS.map((label) => {
+              const active = ((lead as any).labels as string[] || []).includes(label);
+              return (
+                <button
+                  key={label}
+                  onClick={async () => {
+                    const current = ((lead as any).labels as string[] || []);
+                    const next = active ? current.filter((l: string) => l !== label) : [...current, label];
+                    await supabase.from("leads").update({ labels: next } as any).eq("id", id!);
+                    setLead((prev) => prev ? { ...prev, labels: next } as any : prev);
+                  }}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-all active:scale-95",
+                    active
+                      ? LABEL_COLORS[label] ?? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-secondary"
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold mb-2">Lead score (manuel)</h2>
+          <div className="flex items-center gap-3">
+            <Slider
+              value={[(lead as any).manual_lead_score ?? (lead as any).calculated_lead_score ?? 5]}
+              min={0}
+              max={10}
+              step={1}
+              onValueCommit={async (val) => {
+                await supabase.from("leads").update({ manual_lead_score: val[0] } as any).eq("id", id!);
+                setLead((prev) => prev ? { ...prev, manual_lead_score: val[0] } as any : prev);
+                toast.success(`Lead score sat til ${val[0]}`);
+              }}
+              className="flex-1"
+            />
+            <LeadScoreBadge
+              manualScore={(lead as any).manual_lead_score ?? null}
+              calculatedScore={(lead as any).calculated_lead_score ?? null}
+              className="text-xs"
+            />
+          </div>
+        </div>
+      </div>
+
       {isAdmin && (
         <div className="rounded-lg border bg-card p-4 space-y-3">
           <h2 className="text-sm font-semibold flex items-center gap-2">
