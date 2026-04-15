@@ -135,7 +135,7 @@ export default function Dashboard() {
         <Tabs defaultValue="new">
           <TabsList className="w-full justify-start border-b rounded-none bg-transparent px-2 pt-2">
             {PIPELINE_TABS.map((tab) => {
-              const count = allLeads.filter(l => tab.statuses.includes(l.status)).length;
+              const count = allLeads.filter(l => (tab.statuses as readonly string[]).includes(l.status)).length;
               return (
                 <TabsTrigger key={tab.value} value={tab.value} className="text-xs data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
                   {tab.label} ({count})
@@ -144,7 +144,7 @@ export default function Dashboard() {
             })}
           </TabsList>
           {PIPELINE_TABS.map((tab) => {
-            const tabLeads = allLeads.filter(l => tab.statuses.includes(l.status));
+            const tabLeads = allLeads.filter(l => (tab.statuses as readonly string[]).includes(l.status));
             return (
               <TabsContent key={tab.value} value={tab.value} className="p-3 space-y-1.5">
                 {tabLeads.length === 0 ? (
