@@ -572,3 +572,89 @@ function RundownCard({ icon, title, content }: { icon: React.ReactNode; title: s
     </div>
   );
 }
+
+const BASE_PRICES: Record<string, number> = {
+  slibning: 150,
+  laegning: 250,
+  lakering: 100,
+};
+
+const TREATMENT_LABELS: Record<string, string> = {
+  slibning: "Slibning (150 kr/m²)",
+  laegning: "Lægning (250 kr/m²)",
+  lakering: "Lakering (100 kr/m²)",
+};
+
+function PriceCalculator({ leadId, squareMeters, onSaved }: { leadId: string; squareMeters: number | null; onSaved: () => void }) {
+  const [sqm, setSqm] = useState(String(squareMeters ?? ""));
+  const [treatment, setTreatment] = useState("slibning");
+  const [difficulty, setDifficulty] = useState([1.0]);
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const calculatedPrice = Math.round((Number(sqm) || 0) * (BASE_PRICES[treatment] || 150) * difficulty[0]);
+
+  const saveToLead = async () => {
+    if (!calculatedPrice) return;
+    setSaving(true);
+    const costs = Math.round(calculatedPrice * 0.7);
+    const { error } = await supabase.from("leads").update({
+      revenue: calculatedPrice,
+      actual_costs: costs,
+      square_meters: Number(sqm) || null,
+    }).eq("id", leadId);
+    setSaving(false);
+    if (error) { toast.error("Kunne ikke gemme"); return; }
+    toast.success("Prisberegning gemt i lead-data");
+    onSaved();
+  };
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors"
+      >
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        Interaktiv prisberegner
+        {open ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+      </button>
+
+      {open && (
+        <div className="mt-3 rounded-lg bg-accent/30 p-3 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">m²</Label>
+              <Input type="number" value={sqm} onChange={(e) => setSqm(e.target.value)} placeholder="0" className="mt-1 h-8" />
+            </div>
+            <div>
+              <Label className="text-xs">Behandlingstype</Label>
+              <Select value={treatment} onValueChange={setTreatment}>
+                <SelectTrigger className="mt-1 h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TREATMENT_LABELS).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Sværhedsgrad: {difficulty[0].toFixed(1)}x</Label>
+            <Slider value={difficulty} onValueChange={setDifficulty} min={1.0} max={2.0} step={0.1} className="mt-2" />
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <div>
+              <p className="text-xs text-muted-foreground">Beregnet pris</p>
+              <p className="text-lg font-bold tabular-nums">{calculatedPrice.toLocaleString("da-DK")} kr.</p>
+            </div>
+            <Button size="sm" className="h-8 text-xs" onClick={saveToLead} disabled={saving || !calculatedPrice}>
+              {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <DollarSign className="h-3 w-3 mr-1" />}
+              Gem i lead-data
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
