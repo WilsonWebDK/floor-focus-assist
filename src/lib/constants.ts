@@ -88,8 +88,3 @@ export const LABEL_COLORS: Record<string, string> = {
   Nordsjælland: "bg-purple-500/15 text-purple-700",
   Privat: "bg-primary/15 text-primary",
 };
-  call_again: "Ring igen",
-  send_quote: "Send tilbud",
-  schedule_inspection: "Book inspektion",
-  follow_up: "Opfølgning",
-};
