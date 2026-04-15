@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import QuickNoteButton from "@/components/QuickNoteButton";
 
 const NAV_ITEMS = [
   { to: "/", label: "Oversigt", icon: LayoutDashboard },
@@ -130,6 +131,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
       {/* Content */}
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+
+      {/* Global Mobile Quick-Note FAB */}
+      <QuickNoteButton />
     </div>
   );
 }
