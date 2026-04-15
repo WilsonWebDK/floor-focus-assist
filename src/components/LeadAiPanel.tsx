@@ -108,6 +108,8 @@ export default function LeadAiPanel({
       toast.error("AI-analyse fejlede: " + error.message);
       return;
     }
+    // Trigger lead scoring after analysis
+    supabase.functions.invoke("score-lead", { body: { lead_id: leadId } }).catch(() => {});
     toast.success("AI-analyse fuldført");
     onAnalyzed();
   };
