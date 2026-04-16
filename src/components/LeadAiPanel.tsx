@@ -451,10 +451,19 @@ export default function LeadAiPanel({
 
           {/* 5. Price estimation */}
           <div className="border-t pt-4">
-            <Button variant="outline" size="sm" onClick={runPriceEstimate} disabled={estimating} className="w-full">
-              {estimating ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5 mr-1.5" />}
-              {hasPrice ? "Beregn pris igen" : "Beregn tilbudspris"}
-            </Button>
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Ekstra info til prisberegning (valgfrit)..."
+                value={priceExtraContext}
+                onChange={(e) => setPriceExtraContext(e.target.value)}
+                className="min-h-[48px] text-xs resize-none"
+                rows={2}
+              />
+              <Button variant="outline" size="sm" onClick={runPriceEstimate} disabled={estimating} className="w-full">
+                {estimating ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5 mr-1.5" />}
+                {hasPrice ? "Beregn pris igen" : "Beregn tilbudspris"}
+              </Button>
+            </div>
 
             {hasPrice && suggestedPrice && (
               <div className="mt-3 rounded-lg bg-accent/30 p-3 space-y-2">
