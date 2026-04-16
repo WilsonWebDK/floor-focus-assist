@@ -93,6 +93,8 @@ export default function LeadDetail() {
 
   // Follow-up date
   const [followupDate, setFollowupDate] = useState("");
+  const [followupNote, setFollowupNote] = useState("");
+  const [savingFollowup, setSavingFollowup] = useState(false);
 
   // One-click call log
   const [callLogId, setCallLogId] = useState<string | null>(null);
@@ -107,14 +109,28 @@ export default function LeadDetail() {
 
   const loadData = useCallback(async () => {
     if (!id) return;
-    const [leadRes, commRes] = await Promise.all([
+    const [leadRes, commRes, reminderRes] = await Promise.all([
       supabase.from("leads").select("*").eq("id", id).single(),
       supabase.from("communication_logs").select("*").eq("lead_id", id).order("created_at", { ascending: false }),
+      supabase
+        .from("reminders")
+        .select("description,due_at")
+        .eq("related_type", "lead")
+        .eq("related_id", id)
+        .in("status", ["pending", "snoozed"])
+        .order("created_at", { ascending: false })
+        .limit(1),
     ]);
+    const activeReminder = reminderRes.data?.[0] ?? null;
     if (leadRes.data) {
       setLead(leadRes.data);
       setEditData(leadRes.data);
-      setFollowupDate(leadRes.data.next_followup_at ? leadRes.data.next_followup_at.slice(0, 10) : "");
+      setFollowupDate(
+        leadRes.data.next_followup_at
+          ? leadRes.data.next_followup_at.slice(0, 10)
+          : activeReminder?.due_at?.slice(0, 10) ?? ""
+      );
+      setFollowupNote(activeReminder?.description ?? "");
       setEditRevenue(leadRes.data.revenue != null ? String(leadRes.data.revenue) : "");
       setEditCosts(leadRes.data.actual_costs != null ? String(leadRes.data.actual_costs) : "");
     }
@@ -199,46 +215,149 @@ export default function LeadDetail() {
     toast.success("Økonomi opdateret");
   };
 
-  const updateFollowup = async (date: string) => {
+  const syncFollowupReminder = async ({
+    date,
+    note,
+    logToTimeline,
+  }: {
+    date: string;
+    note: string;
+    logToTimeline: boolean;
+  }) => {
     if (!id || !lead) return;
-    setFollowupDate(date);
-    const value = date ? new Date(date).toISOString() : null;
-    const { error } = await supabase.from("leads").update({ next_followup_at: value }).eq("id", id);
-    if (error) { toast.error("Kunne ikke opdatere opfølgning"); return; }
-    setLead((prev) => prev ? { ...prev, next_followup_at: value } : prev);
+    const trimmedNote = note.trim();
+    const value = date ? new Date(`${date}T09:00:00`).toISOString() : null;
+    const noteSummary = value && trimmedNote
+      ? `Opfølgning ${format(new Date(value), "d. MMM yyyy", { locale: da })}: ${trimmedNote}`
+      : trimmedNote;
+    const existingInternalNotes = lead.internal_notes?.trim() ?? "";
+    const mergedInternalNotes = trimmedNote
+      ? existingInternalNotes.includes(noteSummary)
+        ? existingInternalNotes
+        : existingInternalNotes
+          ? `${existingInternalNotes}\n\n${noteSummary}`
+          : noteSummary
+      : lead.internal_notes;
 
-    // Sync with reminders table
-    if (value) {
-      await supabase.from("reminders").upsert({
-        related_type: "lead",
-        related_id: id,
-        title: `Opfølgning: ${lead.name}`,
-        due_at: value,
-        status: "pending" as any,
-        created_by: user?.id,
-      }, { onConflict: "related_type,related_id" }).then(({ error: remErr }) => {
-        // If upsert fails (no unique constraint), try insert
-        if (remErr) {
-          supabase.from("reminders").insert({
-            related_type: "lead",
-            related_id: id,
-            title: `Opfølgning: ${lead.name}`,
-            due_at: value,
-            status: "pending" as any,
-            created_by: user?.id,
-          });
-        }
-      });
-    } else {
-      // Clear reminder when followup removed
-      await supabase.from("reminders")
-        .update({ status: "completed" as any })
-        .eq("related_type", "lead")
-        .eq("related_id", id)
-        .eq("status", "pending");
+    const leadPayload: TablesUpdate<"leads"> = {
+      next_followup_at: value,
+      ...(trimmedNote ? { internal_notes: mergedInternalNotes } : {}),
+    };
+
+    const { error } = await supabase.from("leads").update(leadPayload).eq("id", id);
+    if (error) {
+      toast.error("Kunne ikke opdatere opfølgning");
+      return false;
+    }
+    setLead((prev) => prev ? { ...prev, ...leadPayload } : prev);
+
+    const { data: existingReminders, error: reminderLookupError } = await supabase
+      .from("reminders")
+      .select("id")
+      .eq("related_type", "lead")
+      .eq("related_id", id)
+      .in("status", ["pending", "snoozed"]);
+
+    if (reminderLookupError) {
+      toast.error("Kunne ikke hente eksisterende påmindelser");
+      return false;
     }
 
-    toast.success(date ? "Opfølgningsdato sat" : "Opfølgningsdato fjernet");
+    const reminderIds = (existingReminders ?? []).map((reminder) => reminder.id);
+
+    if (value) {
+      const reminderPayload = {
+        title: `Opfølgning: ${lead.name}`,
+        due_at: value,
+        description: trimmedNote || null,
+        status: "pending" as any,
+        created_by: user?.id,
+      };
+
+      const { error: reminderError } = reminderIds.length > 0
+        ? await supabase.from("reminders").update(reminderPayload).in("id", reminderIds)
+        : await supabase.from("reminders").insert({
+            related_type: "lead",
+            related_id: id,
+            ...reminderPayload,
+          });
+
+      if (reminderError) {
+        toast.error("Kunne ikke synkronisere påmindelsen");
+        return false;
+      }
+
+      if (logToTimeline && trimmedNote) {
+        const { error: logError } = await supabase.from("communication_logs").insert({
+          lead_id: id,
+          type: "note" as Enums<"comm_type">,
+          direction: "internal" as Enums<"comm_direction">,
+          summary: `Opfølgning ${format(new Date(value), "d. MMM yyyy", { locale: da })}: ${trimmedNote}`,
+          full_note: trimmedNote,
+          followup_needed: true,
+          followup_at: value,
+          created_by: user?.id,
+        });
+
+        if (logError) {
+          toast.error("Opfølgning blev gemt, men note kunne ikke logges på leadet");
+          return false;
+        }
+      }
+    } else {
+      if (reminderIds.length > 0) {
+        const { error: reminderError } = await supabase
+          .from("reminders")
+          .update({ status: "completed" as any })
+          .in("id", reminderIds);
+
+        if (reminderError) {
+          toast.error("Kunne ikke fjerne påmindelsen");
+          return false;
+        }
+      }
+    }
+
+    setFollowupDate(date);
+    setFollowupNote(note);
+    return true;
+  };
+
+  const saveFollowup = async () => {
+    if (!followupDate) {
+      toast.error("Vælg en opfølgningsdato først");
+      return;
+    }
+
+    setSavingFollowup(true);
+    const success = await syncFollowupReminder({
+      date: followupDate,
+      note: followupNote,
+      logToTimeline: true,
+    });
+    setSavingFollowup(false);
+
+    if (!success) return;
+
+    toast.success("Opfølgning gemt");
+    loadData();
+  };
+
+  const clearFollowup = async () => {
+    setSavingFollowup(true);
+    const success = await syncFollowupReminder({
+      date: "",
+      note: "",
+      logToTimeline: false,
+    });
+    setSavingFollowup(false);
+
+    if (!success) return;
+
+    setFollowupDate("");
+    setFollowupNote("");
+    toast.success("Opfølgning fjernet");
+    loadData();
   };
 
   const addCommLog = async () => {
@@ -290,10 +409,16 @@ export default function LeadDetail() {
       await supabase.from("communication_logs").update({ summary: `Udgående opkald: ${callNote.trim()}` }).eq("id", callLogId);
     }
     if (callFollowup && id) {
-      const value = new Date(callFollowup).toISOString();
-      await supabase.from("leads").update({ next_followup_at: value }).eq("id", id);
-      setFollowupDate(callFollowup);
-      setLead((prev) => prev ? { ...prev, next_followup_at: value } : prev);
+      const followupSaved = await syncFollowupReminder({
+        date: callFollowup,
+        note: callNote,
+        logToTimeline: false,
+      });
+
+      if (!followupSaved) {
+        setSavingCallNote(false);
+        return;
+      }
     }
     setSavingCallNote(false);
     setCallLogId(null);
@@ -594,12 +719,25 @@ export default function LeadDetail() {
           <CalendarDays className="h-4 w-4 text-primary" />
           Opfølgning & Kalender
         </h2>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
+        <div className="space-y-3">
+          <div>
             <Label className="text-xs">Næste opfølgning</Label>
-            <Input type="date" value={followupDate} onChange={(e) => updateFollowup(e.target.value)} className="mt-1" />
+            <Input type="date" value={followupDate} onChange={(e) => setFollowupDate(e.target.value)} className="mt-1" />
           </div>
-          <div className="flex items-end gap-2">
+          <div>
+            <Label className="text-xs">Kort note til påmindelsen</Label>
+            <Textarea
+              value={followupNote}
+              onChange={(e) => setFollowupNote(e.target.value)}
+              placeholder="Fx Ring og afklar prisramme samt tidspunkt for besigtigelse."
+              rows={2}
+              className="mt-1 min-h-[72px]"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Noten gemmes på leadet og vises også under Påmindelser.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             {hasCalendarSync && lead.google_calendar_link ? (
               <a
                 href={lead.google_calendar_link}
@@ -615,6 +753,16 @@ export default function LeadDetail() {
                 Google Kalender — ikke tilsluttet
               </span>
             )}
+            <div className="flex flex-wrap gap-2">
+              {(lead.next_followup_at || followupDate) && (
+                <Button variant="ghost" size="sm" onClick={clearFollowup} disabled={savingFollowup}>
+                  Fjern
+                </Button>
+              )}
+              <Button size="sm" onClick={saveFollowup} disabled={!followupDate || savingFollowup}>
+                {savingFollowup ? "Gemmer..." : "Gem opfølgning"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
