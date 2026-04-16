@@ -200,12 +200,44 @@ export default function LeadDetail() {
   };
 
   const updateFollowup = async (date: string) => {
-    if (!id) return;
+    if (!id || !lead) return;
     setFollowupDate(date);
     const value = date ? new Date(date).toISOString() : null;
     const { error } = await supabase.from("leads").update({ next_followup_at: value }).eq("id", id);
     if (error) { toast.error("Kunne ikke opdatere opfølgning"); return; }
     setLead((prev) => prev ? { ...prev, next_followup_at: value } : prev);
+
+    // Sync with reminders table
+    if (value) {
+      await supabase.from("reminders").upsert({
+        related_type: "lead",
+        related_id: id,
+        title: `Opfølgning: ${lead.name}`,
+        due_at: value,
+        status: "pending" as any,
+        created_by: user?.id,
+      }, { onConflict: "related_type,related_id" }).then(({ error: remErr }) => {
+        // If upsert fails (no unique constraint), try insert
+        if (remErr) {
+          supabase.from("reminders").insert({
+            related_type: "lead",
+            related_id: id,
+            title: `Opfølgning: ${lead.name}`,
+            due_at: value,
+            status: "pending" as any,
+            created_by: user?.id,
+          });
+        }
+      });
+    } else {
+      // Clear reminder when followup removed
+      await supabase.from("reminders")
+        .update({ status: "completed" as any })
+        .eq("related_type", "lead")
+        .eq("related_id", id)
+        .eq("status", "pending");
+    }
+
     toast.success(date ? "Opfølgningsdato sat" : "Opfølgningsdato fjernet");
   };
 
@@ -319,7 +351,7 @@ export default function LeadDetail() {
               </span>
             )}
           </div>
-          {/* Labels */}
+          {/* Tags shown in header */}
           {((lead as any).labels as string[] || []).length > 0 && (
             <div className="flex gap-1 mt-1 flex-wrap">
               {((lead as any).labels as string[]).map((label) => (
@@ -433,31 +465,31 @@ export default function LeadDetail() {
         />
       )}
 
-      {/* Status pipeline */}
-      <div className="rounded-lg border bg-card p-4">
-        <h2 className="text-sm font-semibold mb-3">Status</h2>
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(LEAD_STATUS_LABELS).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => updateStatus(value)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-all active:scale-95",
-                lead.status === value
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-secondary"
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Labels & Lead Score */}
+      {/* Status pipeline + Tags + Lead Score */}
       <div className="rounded-lg border bg-card p-4 space-y-4">
         <div>
-          <h2 className="text-sm font-semibold mb-2">Labels</h2>
+          <h2 className="text-sm font-semibold mb-3">Status</h2>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(LEAD_STATUS_LABELS).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => updateStatus(value)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-all active:scale-95",
+                  lead.status === value
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted text-muted-foreground hover:bg-secondary"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tags (merged from labels) */}
+        <div>
+          <h2 className="text-sm font-semibold mb-2">Tags</h2>
           <div className="flex flex-wrap gap-1.5">
             {LABEL_OPTIONS.map((label) => {
               const active = ((lead as any).labels as string[] || []).includes(label);
@@ -483,17 +515,21 @@ export default function LeadDetail() {
             })}
           </div>
         </div>
+
+        {/* Lead score */}
         <div>
-          <h2 className="text-sm font-semibold mb-2">Lead score (manuel)</h2>
+          <h2 className="text-sm font-semibold mb-2">Lead score</h2>
           <div className="flex items-center gap-3">
             <Slider
               value={[(lead as any).manual_lead_score ?? (lead as any).calculated_lead_score ?? 5]}
               min={0}
               max={10}
               step={1}
+              onValueChange={(val) => {
+                setLead((prev) => prev ? { ...prev, manual_lead_score: val[0] } as any : prev);
+              }}
               onValueCommit={async (val) => {
                 await supabase.from("leads").update({ manual_lead_score: val[0] } as any).eq("id", id!);
-                setLead((prev) => prev ? { ...prev, manual_lead_score: val[0] } as any : prev);
                 toast.success(`Lead score sat til ${val[0]}`);
               }}
               className="flex-1"
