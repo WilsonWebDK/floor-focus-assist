@@ -8,9 +8,10 @@ import LeadScoreBadge from "@/components/LeadScoreBadge";
 import PriorityFeed from "@/components/PriorityFeed";
 import { useIsAdmin } from "@/hooks/useUserRole";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2, TrendingUp, PhoneCall, CalendarCheck } from "lucide-react";
+import { Inbox, AlertTriangle, Clock, Bell, CheckCircle2, TrendingUp, PhoneCall, CalendarCheck, BarChart3 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { da } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 type Lead = Tables<"leads">;
 type Reminder = Tables<"reminders">;
@@ -23,6 +24,27 @@ const PIPELINE_TABS = [
   { value: "won", label: "Vundet", statuses: ["won"] },
 ] as const;
 
+const SCORE_FILTERS = [
+  { label: "Alle", min: -1, max: 99 },
+  { label: "0-3", min: 0, max: 3 },
+  { label: "4-7", min: 4, max: 7 },
+  { label: "8-10", min: 8, max: 10 },
+] as const;
+
+function getLeadScore(lead: Lead): number | null {
+  return (lead as any).manual_lead_score ?? (lead as any).calculated_lead_score ?? null;
+}
+
+function periodCount(leads: Lead[], hoursAgo: number, offsetHours = 0): number {
+  const now = Date.now();
+  const from = now - (hoursAgo + offsetHours) * 3600000;
+  const to = now - offsetHours * 3600000;
+  return leads.filter(l => {
+    const t = new Date(l.created_at).getTime();
+    return t >= from && t < to;
+  }).length;
+}
+
 export default function Dashboard() {
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -34,6 +56,7 @@ export default function Dashboard() {
   const [dailyCallCount, setDailyCallCount] = useState(0);
   const [inspectionCount, setInspectionCount] = useState(0);
   const [unrealizedPotential, setUnrealizedPotential] = useState(0);
+  const [scoreFilter, setScoreFilter] = useState<typeof SCORE_FILTERS[number]>(SCORE_FILTERS[0]);
 
   useEffect(() => {
     async function load() {
@@ -67,6 +90,22 @@ export default function Dashboard() {
     load();
   }, []);
 
+  // Period stats
+  const last24h = periodCount(allLeads, 24);
+  const prev24h = periodCount(allLeads, 24, 24);
+  const last7d = periodCount(allLeads, 168);
+  const prev7d = periodCount(allLeads, 168, 168);
+  const last30d = periodCount(allLeads, 720);
+  const prev30d = periodCount(allLeads, 720, 720);
+
+  // Filtered leads for pipeline
+  const filteredLeads = scoreFilter.min === -1
+    ? allLeads
+    : allLeads.filter(l => {
+        const s = getLeadScore(l);
+        return s != null && s >= scoreFilter.min && s <= scoreFilter.max;
+      });
+
   const newLeads = allLeads.filter(l => l.status === "new");
   const urgentLeads = allLeads.filter(l => l.urgency_flag && l.status !== "won" && l.status !== "lost");
   const todayReminders = reminders.filter((r) => new Date(r.due_at).toDateString() === new Date().toDateString());
@@ -81,6 +120,16 @@ export default function Dashboard() {
           <div key={i} className="h-24 rounded-lg bg-muted animate-pulse" />
         ))}
       </div>
+    );
+  }
+
+  function DeltaBadge({ current, previous }: { current: number; previous: number }) {
+    const delta = current - previous;
+    if (delta === 0) return <span className="text-[10px] text-muted-foreground ml-1">±0</span>;
+    return (
+      <span className={cn("text-[10px] font-medium ml-1", delta > 0 ? "text-status-success" : "text-destructive")}>
+        {delta > 0 ? "+" : ""}{delta}
+      </span>
     );
   }
 
@@ -121,6 +170,22 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Period comparison */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Sidste 24 timer</p>
+          <p className="text-2xl font-bold tabular-nums">{last24h}<DeltaBadge current={last24h} previous={prev24h} /></p>
+        </div>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Sidste 7 dage</p>
+          <p className="text-2xl font-bold tabular-nums">{last7d}<DeltaBadge current={last7d} previous={prev7d} /></p>
+        </div>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Sidste 30 dage</p>
+          <p className="text-2xl font-bold tabular-nums">{last30d}<DeltaBadge current={last30d} previous={prev30d} /></p>
+        </div>
+      </div>
+
       {/* Quick widgets */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <DashboardWidget title="Nye leads" count={newLeads.length} icon={<Inbox className="h-4 w-4" />} accent={newLeads.length > 0 ? "warning" : "default"} />
@@ -132,10 +197,30 @@ export default function Dashboard() {
 
       {/* Pipeline Tabs */}
       <div className="rounded-lg border bg-card">
+        {/* Score filter */}
+        <div className="flex items-center gap-2 px-3 pt-3">
+          <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Score:</span>
+          {SCORE_FILTERS.map((f) => (
+            <button
+              key={f.label}
+              onClick={() => setScoreFilter(f)}
+              className={cn(
+                "text-xs px-2 py-0.5 rounded-full transition-colors",
+                scoreFilter.label === f.label
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-accent"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
         <Tabs defaultValue="new">
           <TabsList className="w-full justify-start border-b rounded-none bg-transparent px-2 pt-2 overflow-x-auto flex-nowrap">
             {PIPELINE_TABS.map((tab) => {
-              const count = allLeads.filter(l => (tab.statuses as readonly string[]).includes(l.status)).length;
+              const count = filteredLeads.filter(l => (tab.statuses as readonly string[]).includes(l.status)).length;
               return (
                 <TabsTrigger key={tab.value} value={tab.value} className="text-xs data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shrink-0">
                   {tab.label} ({count})
@@ -144,7 +229,7 @@ export default function Dashboard() {
             })}
           </TabsList>
           {PIPELINE_TABS.map((tab) => {
-            const tabLeads = allLeads.filter(l => (tab.statuses as readonly string[]).includes(l.status));
+            const tabLeads = filteredLeads.filter(l => (tab.statuses as readonly string[]).includes(l.status));
             return (
               <TabsContent key={tab.value} value={tab.value} className="p-3 space-y-1.5">
                 {tabLeads.length === 0 ? (

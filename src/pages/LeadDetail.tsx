@@ -466,14 +466,10 @@ export default function LeadDetail() {
               calculatedScore={(lead as any).calculated_lead_score ?? null}
             />
             {lead.urgency_flag && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-status-urgent">
-                <AlertTriangle className="h-3 w-3" /> Haster
-              </span>
+              <AlertTriangle className="h-3.5 w-3.5 text-status-urgent" />
             )}
             {lead.complexity_flag && (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-status-warning">
-                <Puzzle className="h-3 w-3" /> Kompleks
-              </span>
+              <Puzzle className="h-3.5 w-3.5 text-status-warning" />
             )}
           </div>
           {/* Tags shown in header */}

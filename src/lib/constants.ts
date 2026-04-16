@@ -74,11 +74,18 @@ export const NEXT_ACTION_LABELS: Record<string, string> = {
 export const LABEL_OPTIONS = [
   "Erhverv",
   "Hastesag",
+  "Kompleks",
   "Privat",
 ] as const;
 
 export const LABEL_COLORS: Record<string, string> = {
   Erhverv: "bg-blue-500/15 text-blue-700",
   Hastesag: "bg-destructive/15 text-destructive",
+  Kompleks: "bg-status-warning/15 text-status-warning",
   Privat: "bg-primary/15 text-primary",
+  Slibning: "bg-amber-500/15 text-amber-700",
+  Lakering: "bg-emerald-500/15 text-emerald-700",
+  Oliering: "bg-teal-500/15 text-teal-700",
+  Nyanlæg: "bg-indigo-500/15 text-indigo-700",
+  Reparation: "bg-orange-500/15 text-orange-700",
 };
