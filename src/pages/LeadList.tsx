@@ -293,40 +293,6 @@ export default function LeadList() {
         </div>
       )}
 
-      {/* Floating Quick-Lead Button */}
-      <button
-        onClick={() => setShowQuickLead(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-lg px-4 py-3 hover:bg-primary/90 active:scale-95 transition-all"
-      >
-        <Plus className="h-5 w-5" />
-        <span className="text-sm font-medium hidden sm:inline">Hurtig lead</span>
-      </button>
-
-      {/* Quick-Lead Dialog */}
-      <Dialog open={showQuickLead} onOpenChange={setShowQuickLead}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Hurtig lead (telefonopkald)</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label className="text-xs">Navn *</Label>
-              <Input value={qlName} onChange={(e) => setQlName(e.target.value)} autoFocus />
-            </div>
-            <div>
-              <Label className="text-xs">Telefon</Label>
-              <Input value={qlPhone} onChange={(e) => setQlPhone(e.target.value)} type="tel" />
-            </div>
-            <div>
-              <Label className="text-xs">Adresse</Label>
-              <Input value={qlAddress} onChange={(e) => setQlAddress(e.target.value)} />
-            </div>
-            <Button className="w-full" onClick={submitQuickLead} disabled={qlSaving}>
-              {qlSaving ? "Opretter..." : "Opret lead"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
