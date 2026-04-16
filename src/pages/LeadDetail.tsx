@@ -227,12 +227,29 @@ export default function LeadDetail() {
     if (!id || !lead) return;
     const trimmedNote = note.trim();
     const value = date ? new Date(`${date}T09:00:00`).toISOString() : null;
-    const { error } = await supabase.from("leads").update({ next_followup_at: value }).eq("id", id);
+    const noteSummary = value && trimmedNote
+      ? `Opfølgning ${format(new Date(value), "d. MMM yyyy", { locale: da })}: ${trimmedNote}`
+      : trimmedNote;
+    const existingInternalNotes = lead.internal_notes?.trim() ?? "";
+    const mergedInternalNotes = trimmedNote
+      ? existingInternalNotes.includes(noteSummary)
+        ? existingInternalNotes
+        : existingInternalNotes
+          ? `${existingInternalNotes}\n\n${noteSummary}`
+          : noteSummary
+      : lead.internal_notes;
+
+    const leadPayload: TablesUpdate<"leads"> = {
+      next_followup_at: value,
+      ...(trimmedNote ? { internal_notes: mergedInternalNotes } : {}),
+    };
+
+    const { error } = await supabase.from("leads").update(leadPayload).eq("id", id);
     if (error) {
       toast.error("Kunne ikke opdatere opfølgning");
       return false;
     }
-    setLead((prev) => prev ? { ...prev, next_followup_at: value } : prev);
+    setLead((prev) => prev ? { ...prev, ...leadPayload } : prev);
 
     const { data: existingReminders, error: reminderLookupError } = await supabase
       .from("reminders")
