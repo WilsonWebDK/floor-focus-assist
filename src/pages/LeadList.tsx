@@ -37,7 +37,8 @@ function MissingInfoBadges({ lead }: { lead: Lead }) {
   if (!lead.job_type) {
     badges.push({ label: "Opgave", icon: <Wrench className="h-2.5 w-2.5" /> });
   }
-  if (!lead.urgency_flag) {
+  // Only show "Hast" as missing if AI hasn't analyzed yet
+  if (!lead.urgency_flag && !(lead as any).ai_analysis_flags) {
     badges.push({ label: "Hast", icon: <Clock className="h-2.5 w-2.5" /> });
   }
 

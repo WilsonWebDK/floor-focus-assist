@@ -171,6 +171,10 @@ Skriv også et professionelt, venligt emailudkast til kunden på dansk. Emailen 
         analyzed_at: new Date().toISOString(),
       },
     };
+    // Auto-populate job_type from AI category if not already set
+    if (!lead.job_type && analysis.category) {
+      updateData.job_type = analysis.category;
+    }
     if (analysis.missing_info_summary) {
       updateData.missing_info_summary = analysis.missing_info_summary;
     }
@@ -180,6 +184,16 @@ Skriv også et professionelt, venligt emailudkast til kunden på dansk. Emailen 
       .update(updateData)
       .eq("id", lead_id);
     if (updateErr) throw new Error("Failed to update lead: " + updateErr.message);
+
+    // Auto-trigger score-lead after analysis (fire-and-forget)
+    fetch(`${supabaseUrl}/functions/v1/score-lead`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ lead_id }),
+    }).catch((err) => console.error("Auto score-lead failed:", err));
 
     return new Response(JSON.stringify({ success: true, analysis }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
