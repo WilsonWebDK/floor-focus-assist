@@ -239,7 +239,7 @@ export default function LeadAiPanel({
       setApplyingSuggestions(false);
       return;
     }
-    const { error } = await supabase.from("leads").update(updates).eq("id", leadId);
+    const { error } = await supabase.from("leads").update(updates as any).eq("id", leadId);
     setApplyingSuggestions(false);
     if (error) {
       toast.error("Kunne ikke anvende AI-forslag");

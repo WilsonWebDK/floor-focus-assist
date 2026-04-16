@@ -808,6 +808,8 @@ export default function LeadDetail() {
         squareMeters={lead.square_meters ?? null}
         floorLevel={(lead as any).floor_level ?? null}
         hasElevator={(lead as any).has_elevator ?? null}
+        jobType={lead.job_type ?? null}
+        labels={(lead as any).labels ?? null}
         onAnalyzed={loadData}
       />
 
