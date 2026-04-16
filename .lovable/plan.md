@@ -1,62 +1,44 @@
 
 
-# Fix: 5 Bugs — Overflow, Score, Labels, Quick-Note & Reminders
+# Fix: Auto Lead Score, AI Auto-fill on Arrival, Apply Suggestions & Price Note
 
-## 1. Horizontal overflow on mobile (Dashboard pipeline tabs)
-- **Dashboard.tsx**: Make `TabsList` horizontally scrollable with `overflow-x-auto` and `flex-nowrap`, prevent it from forcing page-wide scroll
-- **LeadList.tsx filter pills**: Already uses `flex-wrap` — verify no overflow from label badges on cards by adding `overflow-hidden` to the card container
-- **AppLayout.tsx desktop nav**: Already `hidden md:flex` — no issue on mobile
+## Problems identified
 
-## 2. Lead score not showing / slider not working
-- **Root cause**: Both `manual_lead_score` and `calculated_lead_score` are null for all leads, so `LeadScoreBadge` returns null. The `score-lead` edge function is never called automatically.
-- **Fix A**: Show a default "–" badge when score is null instead of hiding it entirely
-- **Fix B**: The Slider uses `onValueCommit` which only fires on pointer-up — change to also use `onValueChange` for live visual feedback, and keep `onValueCommit` for saving
-- **Fix C**: Call `score-lead` automatically after `analyze-lead` completes in `LeadAiPanel`, so calculated scores populate
-- **Fix D**: Add a "Beregn score" button in LeadDetail as a manual trigger
+1. **Lead score not calculated automatically** — `score-lead` is only called manually or after clicking AI analyse. It should run automatically when a lead arrives (in `receive-lead`) and after `analyze-lead`.
+2. **"Opgave" and "Hast" shown as red missing badges** — `MissingInfoBadges` marks `job_type` and `urgency_flag` as missing with red labels. AI should auto-populate these on arrival. The `analyze-lead` function already sets `urgency_flag` and `category` but NOT `job_type`. Fix: also write `job_type` from AI category.
+3. **"Anvend AI-forslag" doesn't apply AI-extracted labels/category** — Currently `applyAiSuggestions` only applies `suggested_sqm`, `suggested_floor_level`, `suggested_has_elevator`. It ignores `category` (which should map to `job_type`) and doesn't add labels. Fix: also write `job_type` from category and add relevant labels (e.g. "Hastesag" if urgency_flag).
+4. **Lead score not shown in Dashboard** — Already shows in LeadList but needs to also appear in Dashboard lead widgets.
+5. **Price calculator missing note field for extra AI context** — User wants a small textarea to provide additional info to AI price recalculation, plus a button to apply the new price to lead economics.
 
-## 3. Merge Status and Labels — keep Status, drop Labels
-- **Remove** the `labels` column usage entirely (keep DB column, just stop using it in UI)
-- **Add** "Erhverv", "Hastesag", "Privat" as new values in the `lead_status` enum via migration
-- **Update** `LEAD_STATUS_LABELS` and `LEAD_STATUS_COLORS` in constants.ts
-- **Remove** `LABEL_OPTIONS`, `LABEL_COLORS` exports
-- **Remove** label display from LeadList cards, LeadDetail header, and the Labels section in LeadDetail
-- **Allow multi-select on status**: No — status is a single enum. Instead, re-purpose labels as "tags" that are part of the status pipeline buttons. Actually, the user said "der skal kunne vælges flere" — so we keep the `labels` array but rename it conceptually as extra status tags. We merge the UI: show status + tags together in one section, remove the separate Labels section. Add "Erhverv", "Hastesag", "Privat" to the tag options (they're already there in LABEL_OPTIONS). Remove "Forsikringssag", "Google Ads lead", "Nordsjælland" — wait, the user said "Tilføj Erhverv, Hastesag, Privat til Status" and "skrot Labels". Let me re-read: "Status og labels skal slås sammen… Behold Status - skrot Labels. Tilføj Erhverv, Hastesag, Privat til Status."
+## Plan
 
-So: Keep single status dropdown. But allow *additional* multi-select tags (Erhverv, Hastesag, Privat) shown alongside the status. Merge the UI into one section. Remove the separate "Labels" card. The tags come from the existing `labels` column. Simplify LABEL_OPTIONS to just `["Erhverv", "Hastesag", "Privat"]`.
+### 1. Auto-trigger score-lead after analyze-lead (backend)
+- **`analyze-lead/index.ts`**: After updating the lead, call `score-lead` automatically (fire-and-forget).
+- **`receive-lead/index.ts`**: After `analyze-lead` call, also chain `score-lead` (analyze-lead will do it, so no extra call needed here).
 
-**Implementation:**
-- Merge Labels into the Status section in LeadDetail — show tag toggles below status buttons
-- Update `LABEL_OPTIONS` to `["Erhverv", "Hastesag", "Privat"]`
-- Remove separate Labels card from LeadDetail
-- Show tags alongside StatusBadge in LeadList cards
-- Remove label display from Dashboard (keep it clean)
+### 2. Auto-populate job_type from AI category
+- **`analyze-lead/index.ts`**: In `updateData`, add `job_type: analysis.category` when the lead's current `job_type` is null.
+- This makes "Opgave" badge disappear after AI runs.
 
-## 4. Quick-Note + Quick-Lead FABs — merge into one
-- **Current**: `QuickNoteButton` (FAB in AppLayout, bottom-right) + Quick-Lead FAB in LeadList (also bottom-right)
-- **Fix**: Merge into one FAB in AppLayout that opens a drawer with tabs: "Note" and "Nyt lead"
-- Remove the Quick-Lead FAB from LeadList.tsx
-- The merged drawer should be compact: reduce padding, use smaller text, fewer rows in textarea
-- Position: single FAB at bottom-right, smaller (`h-11 w-11`)
+### 3. Fix "Anvend AI-forslag" to also apply job_type and labels
+- **`LeadAiPanel.tsx` → `applyAiSuggestions`**: 
+  - Also set `job_type` from `aiAnalysisFlags.category` if lead has no job_type
+  - Also set `labels` — add "Hastesag" if `urgencyFlag`, add category as a tag if relevant
+  - Show what was applied in the success toast
 
-## 5. Follow-up reminders not appearing in Reminders page
-- **Root cause**: `updateFollowup` in LeadDetail only updates `leads.next_followup_at` — it does NOT create a row in the `reminders` table
-- **Fix**: When a follow-up date is set, also insert/upsert a reminder in the `reminders` table with `related_type: 'lead'`, `related_id: lead.id`, `title: "Opfølgning: {lead.name}"`, `due_at: date`
-- When follow-up date is cleared, delete/complete the corresponding reminder
-- This ensures reminders show up on both the Reminders page and Dashboard
+### 4. Add extra-info note field for AI price recalculation
+- **`LeadAiPanel.tsx`**: Add a small `<Textarea>` next to "Beregn tilbudspris" button for extra context
+- Pass `extra_context` to `estimate-price` edge function
+- **`estimate-price/index.ts`**: Accept `extra_context` parameter and include it in the AI prompt
+- Add "Tilføj til økonomi" button on the recalculated price (already exists as "Anvend AI pris på økonomi")
 
-## Technical Details
+### 5. MissingInfoBadges: adjust "Hast" logic
+- **`LeadList.tsx` → `MissingInfoBadges`**: Change `urgency_flag` check — if AI has analyzed the lead and set `urgency_flag = false`, that's valid data (not missing). Only show "Hast" as missing if AI hasn't analyzed yet (`ai_analysis_flags` is null).
 
-### Files Modified
-1. **`src/pages/Dashboard.tsx`** — scrollable TabsList, remove label display
-2. **`src/components/LeadScoreBadge.tsx`** — show "–" when null
-3. **`src/pages/LeadDetail.tsx`** — fix slider (add onValueChange), merge labels into status section, create reminders on followup, remove separate labels card
-4. **`src/pages/LeadList.tsx`** — remove Quick-Lead FAB, simplify label display
-5. **`src/components/QuickNoteButton.tsx`** — add "Nyt lead" tab, make drawer more compact
-6. **`src/lib/constants.ts`** — simplify LABEL_OPTIONS to 3 items, remove unused colors
-7. **`src/components/AppLayout.tsx`** — no changes needed (QuickNoteButton already here)
+## Files Modified
 
-### Migration
-```sql
--- No schema migration needed. We reuse existing labels column and status enum.
-```
+1. **`supabase/functions/analyze-lead/index.ts`** — auto-set `job_type` from category, auto-call `score-lead`
+2. **`supabase/functions/estimate-price/index.ts`** — accept `extra_context` param
+3. **`src/components/LeadAiPanel.tsx`** — fix `applyAiSuggestions` to include job_type/labels, add extra-info textarea for price
+4. **`src/pages/LeadList.tsx`** — fix `MissingInfoBadges` "Hast" logic
 
