@@ -133,11 +133,11 @@ export default function Dashboard() {
       {/* Pipeline Tabs */}
       <div className="rounded-lg border bg-card">
         <Tabs defaultValue="new">
-          <TabsList className="w-full justify-start border-b rounded-none bg-transparent px-2 pt-2">
+          <TabsList className="w-full justify-start border-b rounded-none bg-transparent px-2 pt-2 overflow-x-auto flex-nowrap">
             {PIPELINE_TABS.map((tab) => {
               const count = allLeads.filter(l => (tab.statuses as readonly string[]).includes(l.status)).length;
               return (
-                <TabsTrigger key={tab.value} value={tab.value} className="text-xs data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                <TabsTrigger key={tab.value} value={tab.value} className="text-xs data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none shrink-0">
                   {tab.label} ({count})
                 </TabsTrigger>
               );
