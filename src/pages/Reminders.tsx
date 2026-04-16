@@ -43,7 +43,7 @@ export default function Reminders() {
       const { data } = await supabase
         .from("reminders")
         .select("*")
-        .eq("status", "pending")
+        .in("status", ["pending", "snoozed"])
         .order("due_at", { ascending: true });
       
       const now = new Date();
