@@ -12,9 +12,10 @@ import { toast } from "sonner";
 
 type Reminder = Tables<"reminders">;
 
-type FilterTab = "overdue" | "today" | "upcoming" | "completed";
+type FilterTab = "active" | "overdue" | "today" | "upcoming" | "completed";
 
 const TAB_LABELS: Record<FilterTab, string> = {
+  active: "Aktive",
   overdue: "Forfaldne",
   today: "I dag",
   upcoming: "Kommende",
@@ -25,7 +26,7 @@ export default function Reminders() {
   const { user } = useAuth();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<FilterTab>("overdue");
+  const [filter, setFilter] = useState<FilterTab>("active");
   const [sourceFilter, setSourceFilter] = useState<"all" | "auto" | "manual">("all");
 
   const load = async () => {
@@ -52,6 +53,7 @@ export default function Reminders() {
 
       const filtered = (data ?? []).filter((r) => {
         const due = new Date(r.due_at);
+        if (filter === "active") return true;
         if (filter === "overdue") return isBefore(due, todayStart);
         if (filter === "today") return isToday(due);
         return due >= tomorrowStart;
@@ -138,6 +140,7 @@ export default function Reminders() {
         <div className="rounded-lg border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
             {filter === "overdue" && "Ingen forfaldne påmindelser 🎉"}
+            {filter === "active" && "Ingen aktive påmindelser"}
             {filter === "today" && "Ingen påmindelser i dag"}
             {filter === "upcoming" && "Ingen kommende påmindelser"}
             {filter === "completed" && "Ingen fuldførte påmindelser"}
