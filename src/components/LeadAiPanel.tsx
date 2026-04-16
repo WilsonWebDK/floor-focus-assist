@@ -213,7 +213,8 @@ export default function LeadAiPanel({
       updates.square_meters = aiAnalysisFlags.suggested_sqm;
       applied.push(`m²: ${aiAnalysisFlags.suggested_sqm}`);
     }
-    if (aiAnalysisFlags.suggested_floor_level != null && !floorLevel) {
+    // Only apply floor level if explicitly mentioned (non-zero)
+    if (aiAnalysisFlags.suggested_floor_level != null && aiAnalysisFlags.suggested_floor_level > 0 && !floorLevel) {
       updates.floor_level = aiAnalysisFlags.suggested_floor_level;
       applied.push(`Etage: ${aiAnalysisFlags.suggested_floor_level}`);
     }
@@ -226,11 +227,23 @@ export default function LeadAiPanel({
       updates.job_type = aiAnalysisFlags.category;
       applied.push(`Opgavetype: ${aiAnalysisFlags.category}`);
     }
-    // Auto-apply labels (Hastesag if urgent)
+    // Auto-apply labels: Hastesag, Kompleks, and AI category
     const newLabels = [...(labels || [])];
     if (urgencyFlag && !newLabels.includes("Hastesag")) {
       newLabels.push("Hastesag");
       applied.push("Label: Hastesag");
+    }
+    if (complexityFlag && !newLabels.includes("Kompleks")) {
+      newLabels.push("Kompleks");
+      applied.push("Label: Kompleks");
+    }
+    // Add AI category as label (capitalize first letter)
+    if (aiAnalysisFlags.category) {
+      const catLabel = aiAnalysisFlags.category.charAt(0).toUpperCase() + aiAnalysisFlags.category.slice(1).toLowerCase();
+      if (!newLabels.includes(catLabel)) {
+        newLabels.push(catLabel);
+        applied.push(`Label: ${catLabel}`);
+      }
     }
     if (newLabels.length !== (labels || []).length) {
       updates.labels = newLabels;

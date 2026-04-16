@@ -178,6 +178,24 @@ Skriv også et professionelt, venligt emailudkast til kunden på dansk. Emailen 
     if (analysis.missing_info_summary) {
       updateData.missing_info_summary = analysis.missing_info_summary;
     }
+    // Auto-add labels: Hastesag, Kompleks, category
+    const existingLabels: string[] = lead.labels || [];
+    const newLabels = [...existingLabels];
+    if (analysis.urgency_flag && !newLabels.includes("Hastesag")) {
+      newLabels.push("Hastesag");
+    }
+    if (analysis.complexity_flag && !newLabels.includes("Kompleks")) {
+      newLabels.push("Kompleks");
+    }
+    if (analysis.category) {
+      const catLabel = analysis.category.charAt(0).toUpperCase() + analysis.category.slice(1).toLowerCase();
+      if (!newLabels.includes(catLabel)) {
+        newLabels.push(catLabel);
+      }
+    }
+    if (newLabels.length !== existingLabels.length) {
+      updateData.labels = newLabels;
+    }
 
     const { error: updateErr } = await supabase
       .from("leads")
