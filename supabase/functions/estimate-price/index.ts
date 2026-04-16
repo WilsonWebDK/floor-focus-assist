@@ -90,7 +90,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { lead_id } = await req.json();
+    const { lead_id, extra_context } = await req.json();
     if (!lead_id) throw new Error("lead_id is required");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -159,9 +159,10 @@ Kundedata:
 - Gulvhistorik: ${lead.floor_history || "ikke angivet"}
 - Ønsket udseende: ${lead.desired_look || "ikke angivet"}
 - Kvalitetsforventning: ${lead.quality_expectation || "ikke angivet"}
+${extra_context ? `\nEkstra info fra sælger: ${extra_context}` : ""}
 ${knowledgeContext}
 
-Skriv en kort forklaring på dansk. Nævn hvad der er medregnet og hvilke SOP-regler der er brugt.`;
+Skriv en kort forklaring på dansk. Nævn hvad der er medregnet og hvilke SOP-regler der er brugt.${extra_context ? " Tag højde for den ekstra info fra sælgeren i din vurdering." : ""}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

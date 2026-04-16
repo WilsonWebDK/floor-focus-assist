@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -60,6 +61,8 @@ interface LeadAiPanelProps {
   squareMeters: number | null;
   floorLevel: number | null;
   hasElevator: boolean | null;
+  jobType: string | null;
+  labels: string[] | null;
   onAnalyzed: () => void;
 }
 
@@ -75,6 +78,8 @@ export default function LeadAiPanel({
   squareMeters,
   floorLevel,
   hasElevator,
+  jobType,
+  labels,
   onAnalyzed,
 }: LeadAiPanelProps) {
   const { user } = useAuth();
@@ -87,6 +92,7 @@ export default function LeadAiPanel({
   const [supplierMatches, setSupplierMatches] = useState<SupplierMatch[]>([]);
   const [expanded, setExpanded] = useState(true);
   const [localQuote, setLocalQuote] = useState(quoteContent || "");
+  const [priceExtraContext, setPriceExtraContext] = useState("");
 
   useEffect(() => {
     if (supplierMatches.length === 0) {
@@ -116,9 +122,11 @@ export default function LeadAiPanel({
 
   const runPriceEstimate = async () => {
     setEstimating(true);
-    const { error } = await supabase.functions.invoke("estimate-price", {
-      body: { lead_id: leadId },
-    });
+    const body: Record<string, any> = { lead_id: leadId };
+    if (priceExtraContext.trim()) {
+      body.extra_context = priceExtraContext.trim();
+    }
+    const { error } = await supabase.functions.invoke("estimate-price", { body });
     setEstimating(false);
     if (error) {
       toast.error("Prisberegning fejlede: " + error.message);
@@ -199,28 +207,46 @@ export default function LeadAiPanel({
   const applyAiSuggestions = async () => {
     if (!aiAnalysisFlags) return;
     setApplyingSuggestions(true);
-    const updates: { square_meters?: number; floor_level?: number; has_elevator?: boolean } = {};
+    const updates: Record<string, any> = {};
+    const applied: string[] = [];
     if (aiAnalysisFlags.suggested_sqm != null && !squareMeters) {
       updates.square_meters = aiAnalysisFlags.suggested_sqm;
+      applied.push(`m²: ${aiAnalysisFlags.suggested_sqm}`);
     }
     if (aiAnalysisFlags.suggested_floor_level != null && !floorLevel) {
       updates.floor_level = aiAnalysisFlags.suggested_floor_level;
+      applied.push(`Etage: ${aiAnalysisFlags.suggested_floor_level}`);
     }
     if (aiAnalysisFlags.suggested_has_elevator != null && !hasElevator) {
       updates.has_elevator = aiAnalysisFlags.suggested_has_elevator;
+      applied.push(`Elevator: ${aiAnalysisFlags.suggested_has_elevator ? "Ja" : "Nej"}`);
+    }
+    // Auto-apply job_type from category
+    if (aiAnalysisFlags.category && !jobType) {
+      updates.job_type = aiAnalysisFlags.category;
+      applied.push(`Opgavetype: ${aiAnalysisFlags.category}`);
+    }
+    // Auto-apply labels (Hastesag if urgent)
+    const newLabels = [...(labels || [])];
+    if (urgencyFlag && !newLabels.includes("Hastesag")) {
+      newLabels.push("Hastesag");
+      applied.push("Label: Hastesag");
+    }
+    if (newLabels.length !== (labels || []).length) {
+      updates.labels = newLabels;
     }
     if (Object.keys(updates).length === 0) {
       toast.info("Alle felter er allerede udfyldt");
       setApplyingSuggestions(false);
       return;
     }
-    const { error } = await supabase.from("leads").update(updates).eq("id", leadId);
+    const { error } = await supabase.from("leads").update(updates as any).eq("id", leadId);
     setApplyingSuggestions(false);
     if (error) {
       toast.error("Kunne ikke anvende AI-forslag");
       return;
     }
-    toast.success("AI-forslag anvendt på leadet");
+    toast.success(`Anvendt: ${applied.join(", ")}`);
     onAnalyzed();
   };
 
@@ -426,10 +452,19 @@ export default function LeadAiPanel({
 
           {/* 5. Price estimation */}
           <div className="border-t pt-4">
-            <Button variant="outline" size="sm" onClick={runPriceEstimate} disabled={estimating} className="w-full">
-              {estimating ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5 mr-1.5" />}
-              {hasPrice ? "Beregn pris igen" : "Beregn tilbudspris"}
-            </Button>
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Ekstra info til prisberegning (valgfrit)..."
+                value={priceExtraContext}
+                onChange={(e) => setPriceExtraContext(e.target.value)}
+                className="min-h-[48px] text-xs resize-none"
+                rows={2}
+              />
+              <Button variant="outline" size="sm" onClick={runPriceEstimate} disabled={estimating} className="w-full">
+                {estimating ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5 mr-1.5" />}
+                {hasPrice ? "Beregn pris igen" : "Beregn tilbudspris"}
+              </Button>
+            </div>
 
             {hasPrice && suggestedPrice && (
               <div className="mt-3 rounded-lg bg-accent/30 p-3 space-y-2">
