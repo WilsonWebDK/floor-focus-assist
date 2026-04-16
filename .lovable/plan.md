@@ -1,44 +1,59 @@
 
 
-# Fix: Auto Lead Score, AI Auto-fill on Arrival, Apply Suggestions & Price Note
+# Fix: Lead Score Auto-calc, AI Auto-fill, Label Dedup & Dashboard Stats
 
-## Problems identified
+## Problems
 
-1. **Lead score not calculated automatically** — `score-lead` is only called manually or after clicking AI analyse. It should run automatically when a lead arrives (in `receive-lead`) and after `analyze-lead`.
-2. **"Opgave" and "Hast" shown as red missing badges** — `MissingInfoBadges` marks `job_type` and `urgency_flag` as missing with red labels. AI should auto-populate these on arrival. The `analyze-lead` function already sets `urgency_flag` and `category` but NOT `job_type`. Fix: also write `job_type` from AI category.
-3. **"Anvend AI-forslag" doesn't apply AI-extracted labels/category** — Currently `applyAiSuggestions` only applies `suggested_sqm`, `suggested_floor_level`, `suggested_has_elevator`. It ignores `category` (which should map to `job_type`) and doesn't add labels. Fix: also write `job_type` from category and add relevant labels (e.g. "Hastesag" if urgency_flag).
-4. **Lead score not shown in Dashboard** — Already shows in LeadList but needs to also appear in Dashboard lead widgets.
-5. **Price calculator missing note field for extra AI context** — User wants a small textarea to provide additional info to AI price recalculation, plus a button to apply the new price to lead economics.
+1. **Lead score not auto-calculated on arrival** — `receive-lead` calls `analyze-lead`, which calls `score-lead`. But for leads like "Marie Gade", `job_type` is still null despite `ai_category: slibning`. The `analyze-lead` auto-fill of `job_type` may have failed because the code was deployed after those leads arrived. Need to also ensure `receive-lead` explicitly chains `score-lead` as fallback.
+
+2. **"Haster" and "Hastesag" duplicate in lead header** — Line 468-472 in LeadDetail shows "Haster" badge when `urgency_flag` is true. Line 480-494 shows labels including "Hastesag". When AI applies suggestions, both appear. Fix: Remove the hardcoded "Haster" badge from the header when "Hastesag" is already in labels, OR better: remove the "Haster" text badge entirely since "Hastesag" label already covers it. Keep the `AlertTriangle` icon only.
+
+3. **AI "Anvend AI-forslag" adds labels like "slibning"** — The `applyAiSuggestions` function adds "Hastesag" label correctly but doesn't add the AI category as a label (e.g. "slibning"). The user says "slibning og lakering, haster og kompleks er fine labels". Need to also add AI-extracted category + "Kompleks" if complexity_flag is true.
+
+4. **AI guesses floor level when unknown** — The `suggested_floor_level` is shown even when AI is just guessing. Fix: only show/apply `suggested_floor_level` when the AI returns a non-zero value and the lead message actually mentions it.
+
+5. **Dashboard missing period comparisons** — Need widgets showing leads last 24h, 7d, 30d with comparison to previous period.
+
+6. **Dashboard missing lead score filter** — Need filter buttons for score ranges: 0-3, 4-7, 8-10.
+
+7. **Backfill**: Run `score-lead` and `job_type` update for leads missing these values.
 
 ## Plan
 
-### 1. Auto-trigger score-lead after analyze-lead (backend)
-- **`analyze-lead/index.ts`**: After updating the lead, call `score-lead` automatically (fire-and-forget).
-- **`receive-lead/index.ts`**: After `analyze-lead` call, also chain `score-lead` (analyze-lead will do it, so no extra call needed here).
+### 1. Fix "Haster"/"Hastesag" duplicate (LeadDetail.tsx)
+- Remove the standalone "Haster" text badge from the header (lines 468-472)
+- The `AlertTriangle` icon is sufficient alongside the "Hastesag" label tag
+- Keep the icon-only urgency indicator inline with status badge
 
-### 2. Auto-populate job_type from AI category
-- **`analyze-lead/index.ts`**: In `updateData`, add `job_type: analysis.category` when the lead's current `job_type` is null.
-- This makes "Opgave" badge disappear after AI runs.
+### 2. Improve `applyAiSuggestions` (LeadAiPanel.tsx)
+- Add AI category as a label (e.g. "Slibning", "Lakering") alongside "Hastesag"
+- Add "Kompleks" label if `complexity_flag` is true
+- Only apply `suggested_floor_level` if value > 0 (don't guess ground floor)
+- Update `LABEL_OPTIONS` and `LABEL_COLORS` to include common AI categories: keep existing + add dynamic support
 
-### 3. Fix "Anvend AI-forslag" to also apply job_type and labels
-- **`LeadAiPanel.tsx` → `applyAiSuggestions`**: 
-  - Also set `job_type` from `aiAnalysisFlags.category` if lead has no job_type
-  - Also set `labels` — add "Hastesag" if `urgencyFlag`, add category as a tag if relevant
-  - Show what was applied in the success toast
+### 3. Auto-fill on arrival improvements (analyze-lead)
+- Already auto-fills `job_type` — verify it works by checking deployment
+- Also auto-add labels (Hastesag, Kompleks, category) directly in `analyze-lead` so they appear before user clicks "Anvend AI-forslag"
 
-### 4. Add extra-info note field for AI price recalculation
-- **`LeadAiPanel.tsx`**: Add a small `<Textarea>` next to "Beregn tilbudspris" button for extra context
-- Pass `extra_context` to `estimate-price` edge function
-- **`estimate-price/index.ts`**: Accept `extra_context` parameter and include it in the AI prompt
-- Add "Tilføj til økonomi" button on the recalculated price (already exists as "Anvend AI pris på økonomi")
+### 4. Dashboard: Period stats widgets (Dashboard.tsx)
+- Add 3 stat cards: "Sidste 24 timer", "Sidste 7 dage", "Sidste 30 dage"
+- Each shows count + delta vs previous period (e.g. "+3 vs forrige")
+- Calculate from `allLeads` using `created_at` timestamps
 
-### 5. MissingInfoBadges: adjust "Hast" logic
-- **`LeadList.tsx` → `MissingInfoBadges`**: Change `urgency_flag` check — if AI has analyzed the lead and set `urgency_flag = false`, that's valid data (not missing). Only show "Hast" as missing if AI hasn't analyzed yet (`ai_analysis_flags` is null).
+### 5. Dashboard: Lead score filter (Dashboard.tsx)
+- Add filter buttons above pipeline tabs: "Alle", "0-3", "4-7", "8-10"
+- Filter applies to pipeline tab contents
+- Uses `calculated_lead_score` or `manual_lead_score`
+
+### 6. Backfill missing data
+- SQL update: set `job_type = category` where `job_type IS NULL AND category IS NOT NULL`
+- Trigger `score-lead` for recent leads missing scores
 
 ## Files Modified
-
-1. **`supabase/functions/analyze-lead/index.ts`** — auto-set `job_type` from category, auto-call `score-lead`
-2. **`supabase/functions/estimate-price/index.ts`** — accept `extra_context` param
-3. **`src/components/LeadAiPanel.tsx`** — fix `applyAiSuggestions` to include job_type/labels, add extra-info textarea for price
-4. **`src/pages/LeadList.tsx`** — fix `MissingInfoBadges` "Hast" logic
+1. **`src/pages/LeadDetail.tsx`** — remove duplicate "Haster" badge
+2. **`src/components/LeadAiPanel.tsx`** — improve `applyAiSuggestions` (add category + Kompleks labels, skip floor_level guess)
+3. **`supabase/functions/analyze-lead/index.ts`** — auto-set labels on analysis (Hastesag, Kompleks, category)
+4. **`src/pages/Dashboard.tsx`** — add period comparison stats + lead score filter
+5. **`src/lib/constants.ts`** — add label colors for common categories (slibning, lakering, etc.)
+6. **Data backfill** — update `job_type` from `category` for existing leads, trigger score calculation
 
